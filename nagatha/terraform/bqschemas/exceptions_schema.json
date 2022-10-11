@@ -1,0 +1,44 @@
+[
+    {
+        "description": "Exception UUID",
+        "mode": "REQUIRED",
+        "name": "uuid",
+        "type": "STRING"
+    },
+    {
+        "description": "Source System",
+        "mode": "REQUIRED",
+        "name": "sourceSystem",
+        "type": "STRING"
+    },
+    {
+        "description": "User Email",
+        "mode": "REQUIRED",
+        "name": "userEmail",
+        "type": "STRING"
+    },
+    {
+        "description": "Notification Name",
+        "mode": "REQUIRED",
+        "name": "notificationName",
+        "type": "STRING"
+    },
+    {
+        "description": "Justification",
+        "mode": "REQUIRED",
+        "name": "justification",
+        "type": "STRING"
+    },
+    {
+        "description": "Created On",
+        "mode": "REQUIRED",
+        "name": "createdOn",
+        "type": "TIMESTAMP"
+    },
+    {
+        "description": "Valid Until",
+        "mode": "REQUIRED",
+        "name": "validUntil",
+        "type": "TIMESTAMP"
+    }
+]

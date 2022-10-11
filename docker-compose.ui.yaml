@@ -1,0 +1,66 @@
+version: '3'
+
+services:
+  modron_proxy:
+    container_name: modron_proxy
+    image: nginx:1.23-alpine
+    volumes:
+      - ./docker/nginx-templates:/etc/nginx/templates
+    ports:
+      - "8080:80"
+    environment:
+      MODRON_UI_HOST: "http://modron_ui:8080"
+      MODRON_FAKE_HOST: "http://modron_fake:8080"
+      NGINX_PORT: 80
+    networks:
+      - modron
+    depends_on:
+      - modron_ui
+      - modron_fake
+
+  modron_fake:
+    container_name: modron_fake
+    build: src/
+    environment:
+      PORT: 8080
+      STORAGE: "MEM"
+      COLLECTOR: "FAKE"
+      ORG_ID: "0123456789"
+      ORG_SUFFIX: "@example.com"
+    networks:
+      - modron
+
+  modron_ui:
+    container_name: modron_ui
+    build: ./src/ui
+    environment:
+      ENVIRONMENT: "E2E_TESTING"
+      DIST_PATH: "./ui"
+      PORT: 8080
+    networks:
+      - modron
+
+  modron_test:
+    container_name: modron_test
+    build:
+      context: ./src/ui/client
+      dockerfile: Dockerfile.e2e
+    depends_on:
+      - modron_proxy
+    environment:
+      CYPRESS_baseUrl: "http://modron_proxy"
+    command: npx cypress run
+    volumes:
+      - ./src/ui/client/cypress:/app/cypress:ro
+      - ./docker/cypress/tsconfig.json:/app/tsconfig.json
+      - ./docker/cypress/cypress.config.ts:/app/cypress.config.ts
+    networks:
+      - modron
+
+volumes:
+  stats:
+    external: false
+
+networks:
+  modron:
+    driver: bridge

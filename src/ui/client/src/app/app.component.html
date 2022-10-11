@@ -1,0 +1,7 @@
+<div *ngIf="this.auth.user.signedIn || this.local; else notSignedIn">
+  <router-outlet></router-outlet>
+</div>
+<ng-template #notSignedIn>
+  An unexpected error has occurred while authenticating. Please try to refresh
+  the page in a couple of seconds.
+</ng-template>

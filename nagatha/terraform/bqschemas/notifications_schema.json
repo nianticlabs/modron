@@ -1,0 +1,50 @@
+[
+    {
+        "description": "UUID",
+        "mode": "REQUIRED",
+        "name": "uuid",
+        "type": "STRING"
+    },
+    {
+        "description": "Source system",
+        "mode": "REQUIRED",
+        "name": "sourceSystem",
+        "type": "STRING"
+    },
+    {
+        "description": "Notification name",
+        "mode": "REQUIRED",
+        "name": "name",
+        "type": "STRING"
+    },
+    {
+        "description": "Recipient",
+        "mode": "REQUIRED",
+        "name": "recipient",
+        "type": "STRING"
+    },
+    {
+        "description": "Notification content",
+        "mode": "REQUIRED",
+        "name": "content",
+        "type": "STRING"
+    },
+    {
+        "description": "Created on",
+        "mode": "REQUIRED",
+        "name": "createdOn",
+        "type": "TIMESTAMP"
+    },
+    {
+        "description": "Sent on",
+        "mode": "NULLABLE",
+        "name": "sentOn",
+        "type": "TIMESTAMP"
+    },
+    {
+        "description": "Smallest interval between notifications",
+        "mode": "REQUIRED",
+        "name": "intervalBetweenReminders",
+        "type": "STRING"
+    }
+]

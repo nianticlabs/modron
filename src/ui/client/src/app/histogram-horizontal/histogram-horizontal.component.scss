@@ -1,0 +1,20 @@
+.chart-ctn {
+  display: grid;
+  grid-template-columns: 1fr 10fr;
+  align-items: center;
+  margin-bottom: 2px;
+
+  .annotation {
+    margin: 0;
+    padding: 0;
+    margin-right: 3px;
+    overflow: auto;
+    word-break: keep-all;
+  }
+
+  .bar {
+    background-color: #da1e277c;
+    padding: 3px;
+    box-sizing: border-box;
+  }
+}

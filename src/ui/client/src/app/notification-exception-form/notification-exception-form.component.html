@@ -1,0 +1,79 @@
+<div class="container">
+  <h2 mat-dialog-title>New exception</h2>
+  <mat-dialog-content class="mat-typography">
+    <form
+      id="form"
+      [formGroup]="formGroup"
+      (ngSubmit)="onSubmit()"
+      class="form"
+    >
+      <mat-form-field class="form-field-fill" appearance="fill">
+        <mat-label>Source system</mat-label>
+        <input matInput formControlName="sourceSystem" />
+      </mat-form-field>
+      <mat-form-field class="form-field-fill" appearance="fill">
+        <mat-label>Email</mat-label>
+        <input
+          type="email"
+          matInput
+          formControlName="email"
+          placeholder="Ex. foo@bar.com"
+        />
+        <mat-error
+          *ngIf="
+            emailFormControl.hasError('email') &&
+            !emailFormControl.hasError('required')
+          "
+        >
+          Please enter a valid email address
+        </mat-error>
+        <mat-error *ngIf="emailFormControl.hasError('required')">
+          Email is <strong>required</strong>
+        </mat-error>
+      </mat-form-field>
+      <mat-form-field class="form-field-fill" appearance="fill">
+        <mat-label>Name</mat-label>
+        <input matInput formControlName="notificationName" />
+      </mat-form-field>
+      <mat-form-field class="form-field-fill" appearance="fill">
+        <mat-label>Justification</mat-label>
+        <textarea
+          matInput
+          formControlName="justification"
+          placeholder="Ex. This exception is needed because..."
+        ></textarea>
+        <mat-error *ngIf="justificationFormControl.hasError('required')">
+          Justification is <strong>required</strong>
+        </mat-error>
+      </mat-form-field>
+      <mat-form-field class="form-field-fill" appearance="fill">
+        <mat-label>Exception expiration date</mat-label>
+        <input
+          matInput
+          [matDatepicker]="picker"
+          formControlName="validUntilTime"
+        />
+        <mat-hint>MM/DD/YYYY</mat-hint>
+        <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+        <mat-datepicker #picker></mat-datepicker>
+      </mat-form-field>
+    </form>
+  </mat-dialog-content>
+  <mat-dialog-actions align="end">
+    <button mat-button mat-dialog-close>Cancel</button>
+    <button
+      mat-button
+      type="submit"
+      form="form"
+      [mat-dialog-close]="true"
+      color="primary"
+      [disabled]="!formGroup.valid"
+    >
+      Create
+    </button>
+    <mat-progress-bar
+      mode="indeterminate"
+      *ngIf="submitting"
+    ></mat-progress-bar>
+  </mat-dialog-actions>
+</div>

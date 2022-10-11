@@ -1,0 +1,82 @@
+.app-observation {
+  background-color: rgb(245, 245, 245);
+  padding: 10px;
+  margin-bottom: 5px;
+  cursor: pointer;
+
+  b {
+    font-size: 20px;
+  }
+
+  p {
+    margin: 0;
+    padding: 0 0 0 20px;
+  }
+
+  h3 {
+    margin: 0;
+    padding: 0;
+  }
+  h4 {
+    margin: 0;
+    padding: 0;
+  }
+
+  a {
+    color: rgb(0, 0, 0);
+  }
+  a:link {
+    text-decoration: none;
+  }
+
+  a:visited {
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+
+  a:active {
+    text-decoration: underline;
+  }
+
+  .app-observation-details {
+    div {
+      .gridvalues {
+        padding: 0 0 0 20px;
+        display: grid;
+        grid-template-columns: 100px 1fr;
+      }
+    }
+    code {
+      background-color: rgb(248, 248, 248);
+      padding: 3px 10px;
+    }
+  }
+}
+
+.remediation {
+  background-color: #ffffff;
+  align-self: stretch;
+  padding: 7px;
+}
+
+.recommendation {
+  background-color: #ff832b67;
+  align-self: stretch;
+  padding: 7px;
+}
+
+.inline {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.notify-ctn {
+  svg {
+    width: 40px;
+    cursor: pointer;
+  }
+}

@@ -1,0 +1,26 @@
+/* You can add global styles to this file, and also import other style files */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans&display=swap');
+@import '@angular/material/prebuilt-themes/deeppurple-amber.css';
+
+body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    overflow: hidden;
+    margin: 0;
+    height: 100%
+}
+
+button {
+    border: none;
+    cursor: pointer;
+}
+
+button:active {
+    background-color: rgb(237, 237, 237);
+    border: none;
+    cursor: pointer;
+}
+
+input {
+    border: none;
+    background-color: rgb(249, 249, 249);
+}

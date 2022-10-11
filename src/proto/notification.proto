@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "./pb";
+
+message NotificationException {
+    string uuid = 1;
+    string source_system = 2;
+    string user_email = 3;
+    string notification_name = 4;
+    string justification = 5;
+    google.protobuf.Timestamp created_on_time = 6;
+    google.protobuf.Timestamp valid_until_time = 7;
+}
+
+service NotificationService {
+    rpc GetNotificationException(GetNotificationExceptionRequest) returns (NotificationException);
+    rpc CreateNotificationException(CreateNotificationExceptionRequest)returns (NotificationException);
+    rpc UpdateNotificationException(UpdateNotificationExceptionRequest) returns (NotificationException);
+    rpc DeleteNotificationException(DeleteNotificationExceptionRequest) returns (google.protobuf.Empty);
+    rpc ListNotificationExceptions(ListNotificationExceptionsRequest) returns (ListNotificationExceptionsResponse);
+
+}
+message GetNotificationExceptionRequest {
+    string uuid = 1;
+}
+
+message CreateNotificationExceptionRequest {
+    NotificationException exception = 1;
+}
+
+message UpdateNotificationExceptionRequest {
+    NotificationException exception = 1;
+
+    google.protobuf.FieldMask update_mask = 2;
+}
+
+message DeleteNotificationExceptionRequest {
+    string uuid = 1;
+}
+
+message ListNotificationExceptionsRequest {
+    string user_email = 1;
+
+    int32 page_size = 2;
+
+    string page_token = 3;
+}
+
+message ListNotificationExceptionsResponse {
+    repeated NotificationException exceptions = 1;
+
+    string next_page_token = 2;
+}

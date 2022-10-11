@@ -1,0 +1,19 @@
+{
+    "name": "ui",
+    "version": "0.0.0",
+    "scripts": {
+        "postinstall": "(cd client && npm install); (cd mock-grpc-server && npm install)",
+        "dev": "npm run dev:mock-grpc-server-envoy && concurrently --kill-others \"npm run dev:client\" \"npm run dev:mock-grpc-server\"",
+        "dev:client": "cd client/ && ng serve --verbose --proxy-config ../proxy.conf.json",
+        "dev:mock-grpc-server-envoy": "cd mock-grpc-server/ && docker compose up -d --force-recreate --no-deps --build envoy",
+        "dev:mock-grpc-server": "npm run --prefix mock-grpc-server/ dev",
+        "genproto": "npm run --prefix client/ genproto && npm run --prefix mock-grpc-server/ genproto"
+    },
+    "devDependencies": {
+        "concurrently": "^7.4.0"
+    },
+    "dependencies": {
+        "@angular/material": "^14.2.3",
+        "google-protobuf": "^3.21.0"
+    }
+}

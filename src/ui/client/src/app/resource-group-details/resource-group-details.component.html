@@ -1,0 +1,47 @@
+<div class="app-resourcegroup">
+  <div class="app-resourcegroup-header">
+    <h1>
+      <a
+        href="https://console.cloud.google.com/home/dashboard?project={{
+          this.resourceGroupName
+        }}"
+        >{{ this.resourceGroupName }}</a
+      >
+      |
+    </h1>
+    <h2>resource group observation details</h2>
+  </div>
+
+  <div style="overflow: scroll; height: 80vh">
+    <div *ngIf="this.store.observations$ | async; let mapGroupRules">
+      <div class="app-recourcegroup-observations">
+        <div
+          *ngFor="
+            let obsOfType of this.getName(mapGroupRules)
+              | keyvalue
+              | reverseSortByLength;
+            trackBy: this.identityKV
+          "
+        >
+          <div
+            class="inline"
+            style="justify-content: space-between; align-items: center"
+          >
+            <div class="inline">
+              <h1>{{ obsOfType.key }}:</h1>
+              <h1 *ngIf="obsOfType.value.length > 0" style="color: #da1e28">
+                {{ obsOfType.value.length }} observations
+              </h1>
+              <h1 *ngIf="obsOfType.value.length === 0" style="color: #24a148">
+                ✔ all checks pass
+              </h1>
+            </div>
+          </div>
+          <div *ngFor="let ob_el of obsOfType.value; trackBy: this.identity">
+            <app-observation-details [ob]="ob_el"></app-observation-details>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

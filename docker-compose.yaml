@@ -1,0 +1,57 @@
+version: '3'
+
+services:
+  modron:
+    container_name: modron
+    build: src/
+    environment:
+      PORT: 8080
+      ENVIRONMENT: "E2E_GRPC_TESTING"
+      STORAGE: "MEM"
+      COLLECTOR: "FAKE"
+      ORG_ID: "0123456789"
+      ORG_SUFFIX: "@example.com"
+    ports:
+      - "8080:8080"
+    networks:
+      - modron
+
+  modron_fake:
+    container_name: modron_fake
+    build: src/
+    environment:
+      PORT: 8081
+      ENVIRONMENT: "E2E_GRPC_TESTING"
+      STORAGE: "MEM"
+      COLLECTOR: "FAKE"
+      ORG_ID: "0123456789"
+      ORG_SUFFIX: "@example.com"
+    ports:
+      - "8081:8081"
+    networks:
+      - modron
+
+  modron_test:
+    container_name: e2e_test
+    build:
+      context: src/
+      dockerfile: Dockerfile.e2e
+    environment:
+      BACKEND_ADDRESS: "modron:8080"
+      FAKE_BACKEND_ADDRESS: "modron_fake:8081"
+    volumes:
+      - stats:/app/stats
+      - "./secrets:/app/secrets"
+    networks:
+      - modron
+    depends_on:
+      - modron
+      - modron_fake
+
+volumes:
+  stats:
+    external: false
+
+networks:
+  modron:
+    driver: bridge

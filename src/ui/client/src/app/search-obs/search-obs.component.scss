@@ -1,0 +1,20 @@
+.obs-search {
+  max-height: 600px;
+  overflow-y: scroll;
+
+  .obs-search-filter {
+    input:focus {
+      outline: none;
+    }
+    background-color: rgb(231, 231, 231);
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
+    gap: 20px;
+    padding: 5px;
+    margin-bottom: 5px;
+
+    h2 {
+      margin: 10px;
+    }
+  }
+}

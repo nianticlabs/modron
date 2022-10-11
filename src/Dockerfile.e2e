@@ -1,0 +1,20 @@
+# We have to keep this file here otherwise we can't depend on the shared proto.
+# Docker prevents including files above the Dockerfile directory (.. forbidden).
+ARG GOVERSION=1.18
+
+FROM golang:${GOVERSION}-buster as builder
+ENV GOPATH /go
+WORKDIR /app
+COPY test/go.* e2e_test_dir/
+COPY proto/ ./proto
+WORKDIR /app/e2e_test_dir
+RUN go mod download
+COPY test/e2e_test.go .
+RUN CGO_ENABLED=0 go test -c -v -o test
+
+FROM scratch
+WORKDIR /app/stats
+WORKDIR /app/secrets
+WORKDIR /app
+COPY --from=builder /app/e2e_test_dir/test /app/test
+ENTRYPOINT ["/app/test", "--test.short"]

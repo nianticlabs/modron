@@ -1,0 +1,21 @@
+// place your variables here
+
+module "modron" {
+  source = "../modron"
+
+  domain  = "hosted.at.example.com"
+  env     = "prod"
+  org_id  = "GCP_ORGID"
+  project = "GCP_PROJECT_NAME"
+  zone    = "GCP_ZONE"
+
+  modron_admins = [
+    "group:modron-admins@example.com"
+  ]
+  modron_users = [
+    "group:modron-users@example.com",
+  ]
+  project_admins = [
+    "group:modron-project-admins@example.com"
+  ]
+}

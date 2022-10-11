@@ -1,0 +1,9 @@
+.dccache
+# Local .terraform directories
+**/.terraform/*
+# .tfstate files
+*.tfstate
+*.tfstate.*
+# tf plan
+tf.plan
+gitlab_sa.key

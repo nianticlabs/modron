@@ -1,0 +1,105 @@
+.inline {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.app-resourcegroup {
+  width: 98%;
+
+  a {
+    color: rgb(0, 0, 0);
+  }
+  a:link {
+    text-decoration: none;
+  }
+
+  a:visited {
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+
+  a:active {
+    text-decoration: underline;
+  }
+
+  .app-resourcegroup-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    background-color: rgb(239, 239, 239);
+
+    h1 {
+      margin: 5px 40px;
+    }
+  }
+}
+
+.description,
+.recommendation {
+  background-color: rgb(249, 249, 249);
+  padding: 5px;
+  max-width: 850px;
+}
+
+.app-observation {
+  position: relative;
+  background-color: rgb(245, 245, 245);
+  padding: 10px;
+  margin-bottom: 5px;
+  cursor: pointer;
+
+  b {
+    font-size: 20px;
+  }
+
+  p {
+    margin: 0;
+    padding: 0 0 0 20px;
+  }
+
+  h3 {
+    margin: 0;
+    padding: 0;
+  }
+
+  .app-observation-details {
+    div {
+      .gridvalues {
+        padding: 0 0 0 20px;
+        display: grid;
+        grid-template-columns: 100px 1fr;
+      }
+    }
+
+    code {
+      background-color: rgb(248, 248, 248);
+      padding: 3px 10px;
+    }
+  }
+
+  .notify-ctn:hover > svg {
+    transform: scale(0.8);
+  }
+}
+
+.app-observation:hover {
+  background-color: rgb(235, 235, 235);
+}
+
+.app-recourcegroup-observations {
+  svg {
+    height: 45px;
+    cursor: pointer;
+  }
+
+  svg:hover {
+    fill: rgb(64, 64, 64);
+  }
+}

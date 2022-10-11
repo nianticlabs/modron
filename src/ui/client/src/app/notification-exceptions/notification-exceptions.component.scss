@@ -1,0 +1,39 @@
+.header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  background-color: rgb(239, 239, 239);
+  margin-bottom: 10px;
+
+  .exceptions-filter {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+
+    input {
+      padding: 5px;
+      margin: 5px;
+      font-size: 20px;
+    }
+
+    input:focus {
+      outline: none;
+    }
+  }
+
+  h1 {
+    margin: 5px 40px;
+  }
+}
+
+table {
+  width: 100%;
+  font-family: "IBM Plex Sans", sans-serif;
+
+  th,
+  td {
+    font-size: 18px;
+  }
+}

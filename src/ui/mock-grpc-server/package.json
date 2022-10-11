@@ -1,0 +1,26 @@
+{
+  "name": "modron-mock-server",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "NODE_OPTIONS='--loader ts-node/esm' npx nodemon -- server.ts",
+    "genproto": "./generate_proto.sh"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@alenon/grpc-mock-server": "^3.0.11",
+    "wait-for-sigint": "^0.1.0",
+    "nodemon": "^2.0.20",
+    "ts-node": "^10.9.1",
+    "@grpc/grpc-js": "^1.7.1",
+    "@improbable-eng/grpc-web": "^0.15.0",
+    "@types/google-protobuf": "^3.15.6",
+    "google-protobuf": "^3.21.0"
+  },
+  "devDependencies": {
+    "ts-protoc-gen": "^0.15.0"
+  }
+}

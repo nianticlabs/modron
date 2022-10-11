@@ -1,0 +1,5 @@
+# Ignore generated code
+*_pb_service.d.ts
+*_pb_service.js
+*_pb.d.ts
+*_pb.js

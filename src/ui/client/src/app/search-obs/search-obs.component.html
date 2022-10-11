@@ -1,0 +1,20 @@
+<div class="obs-search">
+  <div class="obs-search-filter">
+    <h2>resource name/id:</h2>
+    <input type="text" [(ngModel)]="searchResource" />
+    <h2>observed value:</h2>
+    <input type="text" [(ngModel)]="searchObservedVal" />
+    <h2>resource group:</h2>
+    <input type="text" [(ngModel)]="searchGroup" />
+  </div>
+
+  <app-observation-details
+    *ngFor="
+      let ob_el of obs
+        | filterObs: searchResource:searchGroup:searchObservedVal;
+      trackBy: this.identity
+    "
+    [ob]="ob_el"
+  >
+  </app-observation-details>
+</div>
