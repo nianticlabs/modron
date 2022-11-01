@@ -74,13 +74,13 @@ func (r *ApiKeyOverbroadScopeRule) Check(ctx context.Context, rsrc *pb.Resource)
 			ObservedValue: structpb.NewStringValue("unrestricted"),
 			Remediation: &pb.Remediation{
 				Description: fmt.Sprintf(
-					"API key [%q](https://console.cloud.google.com/apis/credentials/key/%s?project=%s) is unrestricted, which allows it to be used against any enabled GCP API",
+					"API key [%q](https://console.cloud.google.com/apis/credentials/key/%s?project=%s) is unrestricted, which allows it to be used against any enabled GCP API.",
 					toURLKey(rsrc.Name),
 					toURLKey(rsrc.Name),
 					rsrc.ResourceGroupName,
 				),
 				Recommendation: fmt.Sprintf(
-					"Restrict API key [%q](https://console.cloud.google.com/apis/credentials/key/%s?project=%s) strictly to the APIs it is supposed to call. For more details, see [here](https://niantic.atlassian.net/wiki/spaces/SEC/pages/1016792667/API+Keys)",
+					"Restrict API key [%q](https://console.cloud.google.com/apis/credentials/key/%s?project=%s) strictly to the APIs it is supposed to call.",
 					toURLKey(rsrc.Name),
 					toURLKey(rsrc.Name),
 					rsrc.ResourceGroupName,
@@ -102,14 +102,14 @@ func (r *ApiKeyOverbroadScopeRule) Check(ctx context.Context, rsrc *pb.Resource)
 				ObservedValue: structpb.NewStringValue(scope),
 				Remediation: &pb.Remediation{
 					Description: fmt.Sprintf(
-						"API key [%q](https://console.cloud.google.com/apis/credentials/key/%s?project=%s) may have over-broad scope %q",
+						"API key [%q](https://console.cloud.google.com/apis/credentials/key/%s?project=%s) may have over-broad scope %q.",
 						toURLKey(rsrc.Name),
 						toURLKey(rsrc.Name),
 						rsrc.ResourceGroupName,
 						scope,
 					),
 					Recommendation: fmt.Sprintf(
-						"Remove scope %q from API key [%q](https://console.cloud.google.com/apis/credentials/key/%s?project=%s) unless it is used. For more details, see [here](https://niantic.atlassian.net/wiki/spaces/SEC/pages/1016792667/API+Keys)",
+						"Remove scope %q from API key [%q](https://console.cloud.google.com/apis/credentials/key/%s?project=%s) unless it is used.",
 						scope,
 						toURLKey(rsrc.Name),
 						toURLKey(rsrc.Name),
