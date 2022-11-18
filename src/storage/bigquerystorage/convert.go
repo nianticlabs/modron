@@ -90,3 +90,17 @@ func toBigqueryOperationEntry(ops model.Operation) (*BigQueryOperationEntry, err
 		StatusTime:        ops.StatusTime,
 	}, nil
 }
+
+func (bqOps BigQueryOperationEntry) toModelOperation() (model.Operation, error) {
+	status, err := model.StatusFromString(bqOps.Status)
+	if err != nil {
+		return model.Operation{}, err
+	}
+	return model.Operation{
+		ID:            bqOps.UUID,
+		ResourceGroup: bqOps.ResourceGroupName,
+		OpsType:       bqOps.OpsType,
+		Status:        status,
+		StatusTime:    bqOps.StatusTime,
+	}, nil
+}

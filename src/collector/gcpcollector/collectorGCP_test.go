@@ -3,6 +3,7 @@ package gcpcollector
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -116,7 +117,7 @@ func TestCollectAndStore(t *testing.T) {
 
 func TestOnRealGCPProject(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping test in short mode: long test and needed GCP credentails")
+		t.Skip("skipping test in short mode: long test and needed GCP credentials")
 	}
 
 	limit := 100000
@@ -140,14 +141,14 @@ func TestOnRealGCPProject(t *testing.T) {
 	if err != nil {
 		t.Errorf("storage.ListResources: %v", err)
 	}
-	t.Logf("Collected %v resources\n", len(resourcesCollected))
-	t.Logf("Resources: %v\n", resourcesCollected)
+	fmt.Printf("Collected %v resources\n", len(resourcesCollected))
+	fmt.Printf("Resources: %v\n", resourcesCollected)
 }
 
 //go test -v -run ^TestOnRealGCPProjectAll$ github.com/nianticlabs/modron/src/collector/gcpcollector -timeout 99999s
 func TestOnRealGCPProjectAll(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping test in short mode: long test and needed GCP credentails")
+		t.Skip("skipping test in short mode: long test and needed GCP credentials")
 	}
 
 	limit := 100000
@@ -179,5 +180,5 @@ func TestOnRealGCPProjectAll(t *testing.T) {
 		t.Errorf("storage.ListResources: %v", err)
 	}
 
-	t.Logf("Collected %v resources\n", len(resources))
+	fmt.Printf("Collected %v resources\n", len(resources))
 }

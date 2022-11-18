@@ -7,22 +7,25 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/nianticlabs/modron/src/common"
 	"github.com/nianticlabs/modron/src/model"
 	"github.com/nianticlabs/modron/src/pb"
 )
 
 type MemStorage struct {
-	resources    sync.Map
-	observations sync.Map
-	operations   sync.Map
+	resources        sync.Map
+	observations     sync.Map
+	operations       sync.Map
+	mostRecentScanID sync.Map
 }
 
 func New() model.Storage {
 	return &MemStorage{
-		resources:    sync.Map{},
-		observations: sync.Map{},
-		operations:   sync.Map{},
+		resources:        sync.Map{},
+		observations:     sync.Map{},
+		operations:       sync.Map{},
+		mostRecentScanID: sync.Map{},
 	}
 }
 
@@ -39,6 +42,10 @@ func (mem *MemStorage) BatchCreateResources(ctx context.Context, resources []*pb
 
 func (mem *MemStorage) BatchCreateObservations(ctx context.Context, observations []*pb.Observation) ([]*pb.Observation, error) {
 	for _, o := range observations {
+		if o.Resource == nil {
+			glog.Warningf("can't store observation with no attached resource: %+v", o)
+			continue
+		}
 		existingObs, ok := mem.observations.Load(o.Resource.ResourceGroupName)
 		if !ok {
 			existingObs = []*pb.Observation{}
@@ -87,7 +94,7 @@ func (mem *MemStorage) ListObservations(ctx context.Context, filter model.Storag
 	latestObs := map[string][]*pb.Observation{}
 	if filter.ResourceGroupNames == nil {
 		mem.observations.Range(func(k, v any) bool {
-			if filteredV, err := filterObs(v.([]*pb.Observation), filter); err != nil {
+			if filteredV, err := mem.filterObs(v.([]*pb.Observation), filter); err != nil {
 				return false
 			} else {
 				latestObs[k.(string)] = filteredV
@@ -100,7 +107,7 @@ func (mem *MemStorage) ListObservations(ctx context.Context, filter model.Storag
 			if !ok {
 				continue
 			}
-			if filteredV, err := filterObs(ob.([]*pb.Observation), filter); err != nil {
+			if filteredV, err := mem.filterObs(ob.([]*pb.Observation), filter); err != nil {
 				return nil, err
 			} else {
 				latestObs[n] = filteredV
@@ -121,6 +128,10 @@ func (mem *MemStorage) ListObservations(ctx context.Context, filter model.Storag
 func (mem *MemStorage) AddOperationLog(ctx context.Context, ops []model.Operation) error {
 	for _, o := range ops {
 		mem.operations.Store(o.ID, o)
+		// Here we assume that operation are always added in chronological order.
+		if o.OpsType == "scan" && o.Status == model.OperationCompleted {
+			mem.mostRecentScanID.Store(o.ResourceGroup, o.ID)
+		}
 	}
 	return nil
 }
@@ -129,18 +140,24 @@ func (mem *MemStorage) FlushOpsLog(ctx context.Context) error {
 	return nil
 }
 
-func filterObs(obs []*pb.Observation, filter model.StorageFilter) ([]*pb.Observation, error) {
+func (mem *MemStorage) filterObs(obs []*pb.Observation, filter model.StorageFilter) ([]*pb.Observation, error) {
 	res := []*pb.Observation{}
 
 	if len(obs) == 0 {
 		return res, nil
 	}
 
-	mostRecentScanID := obs[len(obs)-1].ScanUid
+	// Here we assume that the observations are sorted by date.
 	for i := len(obs) - 1; i >= 0; i-- {
+		// TODO: This will fail if we insert observation without a corresponding scan.
+		mostRecentScanID, ok := mem.mostRecentScanID.Load(obs[i].Resource.ResourceGroupName)
+		if !ok {
+			glog.Warningf("no scan found, but observation exist: %v", obs[i])
+			continue
+		}
 		appendResource := true
-		if mostRecentScanID != obs[i].ScanUid {
-			break
+		if obs[i].ScanUid != mostRecentScanID {
+			continue
 		}
 		if filter.ResourceTypes != nil {
 			t, err := common.TypeFromResource(obs[i].Resource)
@@ -169,15 +186,7 @@ func filterObs(obs []*pb.Observation, filter model.StorageFilter) ([]*pb.Observa
 		if filter.StartTime != nil || filter.TimeOffset != nil {
 			if filter.StartTime != nil && filter.TimeOffset != nil {
 				timeStamp := obs[i].Timestamp.AsTime()
-				startTimeF, offsetTimeF := *filter.StartTime, (*filter.StartTime).Add(*filter.TimeOffset)
-				var start, end time.Time
-				if startTimeF.Before(offsetTimeF) {
-					start = startTimeF
-					end = offsetTimeF
-				} else {
-					end = startTimeF
-					start = offsetTimeF
-				}
+				start, end := extractStartAndEndTimes(filter)
 				if !timeStamp.After(start) || !timeStamp.Before(end) {
 					appendResource = false
 				}
@@ -198,6 +207,7 @@ func filterRes(resources []*pb.Resource, filter model.StorageFilter) ([]*pb.Reso
 		return res, nil
 	}
 
+	// Here we assume that the resources are sorted by date.
 	mostRecentCollectID := resources[len(resources)-1].CollectionUid
 	for i := len(resources) - 1; i >= 0; i-- {
 		appendResource := true
@@ -229,13 +239,33 @@ func filterRes(resources []*pb.Resource, filter model.StorageFilter) ([]*pb.Reso
 			}
 		}
 		if filter.StartTime != nil || filter.TimeOffset != nil {
-			return nil, fmt.Errorf("resources dont have a timestamp , you cannot filter by timestamp")
+			if filter.StartTime != nil && filter.TimeOffset != nil {
+				timeStamp := resources[i].GetTimestamp().AsTime()
+				start, end := extractStartAndEndTimes(filter)
+				if !timeStamp.After(start) || !timeStamp.Before(end) {
+					appendResource = false
+				}
+			} else {
+				return nil, fmt.Errorf("StartTime and TimeOffset must both be set")
+			}
 		}
 		if appendResource {
 			res = append(res, resources[i])
 		}
 	}
 	return res, nil
+}
+
+func extractStartAndEndTimes(filter model.StorageFilter) (start time.Time, end time.Time) {
+	startTimeF, offsetTimeF := filter.StartTime, filter.StartTime.Add(*filter.TimeOffset)
+	if startTimeF.Before(offsetTimeF) {
+		start = *startTimeF
+		end = offsetTimeF
+	} else {
+		end = *startTimeF
+		start = offsetTimeF
+	}
+	return start, end
 }
 
 func flatValues[T interface{}](m map[string][]T) []T {

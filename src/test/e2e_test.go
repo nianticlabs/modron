@@ -209,6 +209,7 @@ func TestModronE2eFake(t *testing.T) {
 		"[0][subnetwork-no-private-access-should-be-reported]": {structpb.NewStringValue("enabled")},
 		"cloudsql-report-not-enforcing-tls":                    {structpb.NewBoolValue(true)},
 		"cloudsql-test-db-no-authorized-networks":              {structpb.NewStringValue("AUTHORIZED_NETWORKS_SET")},
+		"0[instance-1]": {structpb.NewStringValue("empty")},
 	}
 	testModronE2e(t, fakeServerAddr, []string{"modron-test"}, want)
 }

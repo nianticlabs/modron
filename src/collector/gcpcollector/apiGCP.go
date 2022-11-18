@@ -2,6 +2,7 @@ package gcpcollector
 
 import (
 	"fmt"
+	"strings"
 
 	"golang.org/x/net/context"
 	"google.golang.org/api/apikeys/v2"
@@ -35,6 +36,7 @@ type GCPApi interface {
 	ListSubNetworksByRegion(name string, region string) (*compute.SubnetworkList, error)
 	ListTargetHttpsProxies(name string) (*compute.TargetHttpsProxyAggregatedList, error)
 	ListUrlMaps(name string) (*compute.UrlMapsAggregatedList, error)
+	ListUsersInGroup(ctx context.Context, group string) ([]string, error)
 	ListZones(name string) (*compute.ZoneList, error)
 	SearchIamPolicy(ctx context.Context, scope string, query string) ([]*cloudasset.IamPolicySearchResult, error)
 }
@@ -285,6 +287,33 @@ func (api *GCPApiReal) ListCloudSqlDatabases(ctx context.Context, name string) (
 		return nil, detailedGoogleError(err, "SqlAdmin.Instances.List")
 	}
 	return instances, nil
+}
+
+func (api *GCPApiReal) ListUsersInGroup(ctx context.Context, group string) ([]string, error) {
+	group = strings.TrimPrefix(group, "group:")
+	groupId, err := api.cloudIdentityService.Groups.Lookup().GroupKeyId(group).Do()
+	if err != nil {
+		return []string{}, fmt.Errorf("group lookup: %v", err)
+	}
+	groupMembers := []string{}
+	if err := api.cloudIdentityService.Groups.Memberships.List(groupId.Name).Pages(ctx, func(lmr *cloudidentity.ListMembershipsResponse) error {
+		for _, m := range lmr.Memberships {
+			switch m.Type {
+			case "GROUP":
+				transitiveMembers, err := api.ListUsersInGroup(ctx, m.PreferredMemberKey.Id)
+				if err != nil {
+					return err
+				}
+				groupMembers = append(groupMembers, transitiveMembers...)
+			default:
+				groupMembers = append(groupMembers, m.PreferredMemberKey.Id)
+			}
+		}
+		return nil
+	}); err != nil {
+		return []string{}, err
+	}
+	return groupMembers, nil
 }
 
 func (api *GCPApiReal) SearchIamPolicy(ctx context.Context, scope string, query string) ([]*cloudasset.IamPolicySearchResult, error) {

@@ -7,8 +7,10 @@ User interface for the Modron service.
 - Angular CLI 14.1
 
 ## How to run
+
 ```bash
 npm run genproto # Generate gRPC
 npm run dev      # Run UI with mock gRPC server and envoy proxy
 ```
+
 Then navigate to `localhost:4200`.

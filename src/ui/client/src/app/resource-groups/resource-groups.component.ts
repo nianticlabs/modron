@@ -22,25 +22,14 @@ export class ResourceGroupsComponent {
 
   ngOnInit() {
     setInterval(() => {
-      this.store.collectInfo.forEach((v, k) => {
-        if (v.state !== 1) {
-          this.store.getScanStatus$(k).subscribe({
-            next: (scanInfo) => {
-                if (scanInfo.state === pb.RequestStatus.DONE) {
-                this.snackBar.open('Scan complete', '', {
-                  duration: ResourceGroupsComponent.SNACKBAR_LINGER_DURATION_MS,
-                });
-                this.store.fetchObservations([]);
-              }
-            },
-            error: () =>
-              this.snackBar.open(
-                'An unexpected error has occurred while scanning',
-                '',
-                {
-                  duration: ResourceGroupsComponent.SNACKBAR_LINGER_DURATION_MS,
-                }
-              ),
+      this.store.scanInfo.forEach((v, k) => {
+        if (v.state === pb.RequestStatus.DONE) {
+            this.snackBar.open('Scan ' + v + ' complete', '', {
+              duration: ResourceGroupsComponent.SNACKBAR_LINGER_DURATION_MS,
+            });
+        } else if (v.state === pb.RequestStatus.CANCELLED) {
+          this.snackBar.open("scan " + v + " error", "", {
+            duration: ResourceGroupsComponent.SNACKBAR_LINGER_DURATION_MS,
           });
         }
       });
@@ -67,7 +56,7 @@ export class ResourceGroupsComponent {
   }
 
   isCollectionRunning$(): Observable<boolean> {
-    return this.store.collectInfo$.pipe(
+    return this.store.scanInfo$.pipe(
       map((info) => {
         let running = false;
         for (const [_, v] of info) {

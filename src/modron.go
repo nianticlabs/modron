@@ -61,6 +61,9 @@ const (
 	productionEnvironment    = "PRODUCTION"
 	e2eGrpcTestEnvironment   = "E2E_GRPC_TESTING"
 	memStorageEnvironment    = "MEM"
+
+	collectAndScanInterval        = "COLLECT_AND_SCAN_INTERVAL" //given as a parsable duration string
+	defaultCollectAndScanInterval = "12h"
 )
 
 var (
@@ -158,23 +161,46 @@ func (modron *modronService) CollectAndScan(ctx context.Context, in *pb.CollectA
 	modronCtx := context.Background()
 	resourceGroupNames, err := modron.validateResourceGroupNames(ctx, in.ResourceGroupNames)
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.FailedPrecondition, "resource group validation: %v", err)
 	}
 	collectId, scanId := uuid.NewString(), uuid.NewString()
-	in.ResourceGroupNames = resourceGroupNames
-	go func() {
-		if err := modron.collect(modronCtx, in.ResourceGroupNames, collectId); err != nil {
+	go func(resourceGroupNames []string) {
+		if err := modron.collect(modronCtx, resourceGroupNames, collectId); err != nil {
 			glog.Error(err)
 			// Do not fail the scan if the collection failed.
 		}
-		if err := modron.scan(modronCtx, in.ResourceGroupNames, scanId); err != nil {
+		if err := modron.scan(modronCtx, resourceGroupNames, scanId); err != nil {
 			glog.Error(err)
 		}
-	}()
+	}(resourceGroupNames)
 	return &pb.CollectAndScanResponse{
 		CollectId: collectId,
 		ScanId:    scanId,
 	}, nil
+}
+
+func (modron *modronService) scheduledRunner(ctx context.Context) {
+	intervalS := os.Getenv(collectAndScanInterval)
+
+	interval, err := time.ParseDuration(intervalS)
+	if err != nil || interval < time.Hour { // enforce a minimum of 1 hour interval
+		interval, _ = time.ParseDuration(defaultCollectAndScanInterval)
+		glog.Errorf("CollectAndScan Scheduler: error while getting interval from env: %v . Keeping default value: %s", err, interval)
+	}
+
+	for {
+		glog.Infof("CollectAndScan Scheduler: starting")
+		if ctx.Err() != nil {
+			glog.Errorf("CollectAndScan Scheduler: %v", ctx.Err())
+			return
+		}
+		if r, err := modron.CollectAndScan(ctx, &pb.CollectAndScanRequest{ResourceGroupNames: []string{}}); err != nil {
+			glog.Errorf("CollectAndScan Scheduler: %v", err)
+		} else {
+			glog.Infof("CollectAndScan Scheduler done: collectionID: %s, scanID: %s", r.CollectId, r.ScanId)
+		}
+		time.Sleep(interval)
+	}
 }
 
 func (modron *modronService) ListObservations(ctx context.Context, in *pb.ListObservationsRequest) (*pb.ListObservationsResponse, error) {
@@ -346,10 +372,10 @@ func (modron *modronService) notificationsFromObservation(ctx context.Context, o
 		return nil, err
 	}
 	if len(rg) < 1 {
-		glog.Warningf("no resource found %+v", ob.Resource.Uid)
+		return nil, fmt.Errorf("no resource found %+v", ob.Resource.Uid)
 	}
 	if len(rg) > 1 {
-		glog.Warningf("multiple resources found for %+v", ob.Resource.Uid)
+		glog.Warningf("multiple resources found for %+v, using the first one", ob.Resource.Uid)
 	}
 	if rg[0].IamPolicy == nil {
 		glog.Warningf("no iam policy found for %s", rg[0].Name)
@@ -564,6 +590,9 @@ func main() {
 				os.Exit(2)
 			}
 		}
+
+		// Start recurring scans
+		srv.scheduledRunner(ctx)
 	}()
 	<-ctx.Done()
 	glog.Infof("server stopped")

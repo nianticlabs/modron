@@ -1,14 +1,14 @@
 import { defineConfig } from 'cypress'
 
 export default defineConfig({
-  
+
   e2e: {
     baseUrl: 'http://localhost:8080',
     supportFile: false
   },
   video: false,
   screenshotOnRunFailure: false,
-  
+
   component: {
     devServer: {
       framework: 'angular',
@@ -16,5 +16,5 @@ export default defineConfig({
     },
     specPattern: '**/*.cy.ts'
   }
-  
+
 })

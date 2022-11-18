@@ -42,14 +42,6 @@ export class ModronStore {
     return this._scanIdsStatus.value;
   }
 
-  get collectInfo$(): Observable<Map<string, StatusInfo>> {
-    return new Observable((sub) => this._collectIdsStatus.subscribe(sub));
-  }
-
-  get collectInfo(): Map<string, StatusInfo> {
-    return this._collectIdsStatus.value;
-  }
-
   // TODO: Make this return an observable.
   fetchObservations(resourceGroups: string[]) {
     this._service.listObservations(resourceGroups).subscribe((obs) => {
@@ -63,7 +55,7 @@ export class ModronStore {
         // A shallow copy here is enough
         let scanInfo = new Map(this.scanInfo);
         const info = {
-          state: res.getScanStatus() || res.getCollectStatus(),
+          state: res.getCollectStatus() !== pb.RequestStatus.DONE ? res.getCollectStatus() : res.getScanStatus(),
           resourceGroups: this.scanInfo.get(scanId)?.resourceGroups as string[],
         };
 
@@ -72,10 +64,10 @@ export class ModronStore {
             `state of scan ${scanId} is UNKNOWN, the modron service may have restarted`
           );
           scanInfo.delete(scanId);
-        } else if (info.state === pb.RequestStatus.DONE) {
+        } else if (info.state === pb.RequestStatus.DONE || info.state === pb.RequestStatus.CANCELLED) {
           // Scan is done, remove from state
           scanInfo.delete(scanId);
-        }else {
+        } else {
           scanInfo.set(scanId, info);
         }
         this._scanIdsStatus.next(scanInfo);
@@ -88,12 +80,12 @@ export class ModronStore {
     return this._service.collectAndScan(resourceGroups).pipe(
       map((res) => {
         // A shallow copy here is enough
-        let collectInfo = new Map(this.collectInfo);
-        collectInfo.set(res.getCollectId(), {
+        let scanInfo = new Map(this.scanInfo);
+        scanInfo.set(res.getScanId(), {
           state: -1,
           resourceGroups: resourceGroups,
-        });
-        this._collectIdsStatus.next(collectInfo);
+        })
+        this._collectIdsStatus.next(scanInfo);
         return res;
       })
     );

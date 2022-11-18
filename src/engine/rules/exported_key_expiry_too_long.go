@@ -14,7 +14,10 @@ import (
 	"github.com/nianticlabs/modron/src/pb"
 )
 
-const ExportedKeyIsTooOld = "EXPORTED_KEY_EXPIRY_TOO_LONG"
+const (
+	ExportedKeyIsTooOld = "EXPORTED_KEY_EXPIRY_TOO_LONG"
+	timeFormat          = "2006-01-02 15:04:05 +0000 UTC"
+)
 
 type ExportedKeyIsTooOldRule struct {
 	info model.RuleInfo
@@ -40,14 +43,14 @@ func (r *ExportedKeyIsTooOldRule) Check(ctx context.Context, rsrc *pb.Resource) 
 	ec := rsrc.GetExportedCredentials()
 	obs := []*pb.Observation{}
 
-	if !ec.ExpirationDate.AsTime().Before(time.Now().AddDate(0, expiryMonths, 1)) {
+	if ec.CreationDate.AsTime().Before(time.Now().AddDate(0, -expiryMonths, 1)) {
 		ob := &pb.Observation{
 			Uid:           uuid.NewString(),
 			Timestamp:     timestamppb.Now(),
 			Resource:      rsrc,
 			Name:          r.Info().Name,
-			ExpectedValue: structpb.NewStringValue("sooner expiration date"),
-			ObservedValue: structpb.NewStringValue(ec.ExpirationDate.AsTime().String()),
+			ExpectedValue: structpb.NewStringValue("later creation date"),
+			ObservedValue: structpb.NewStringValue(ec.CreationDate.AsTime().Format(timeFormat)),
 			Remediation: &pb.Remediation{
 				Description: fmt.Sprintf(
 					"Exported key [%q](https://console.cloud.google.com/apis/credentials?project=%s) is too long lived",
@@ -55,7 +58,7 @@ func (r *ExportedKeyIsTooOldRule) Check(ctx context.Context, rsrc *pb.Resource) 
 					rsrc.ResourceGroupName,
 				),
 				Recommendation: fmt.Sprintf(
-					"Set an expiration date for the exported key [%q](https://console.cloud.google.com/apis/credentials?project=%s) that is not longer than %d months and ensure a process is in place to rotate the credentials regularly",
+					"Rotate the exported key [%q](https://console.cloud.google.com/apis/credentials?project=%s) every %d months.",
 					engine.GetGcpReadableResourceName(rsrc.Name),
 					rsrc.ResourceGroupName,
 					expiryMonths,

@@ -28,6 +28,7 @@ func New(ctx context.Context, addr string) (model.NotificationService, error) {
 	opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
 		RootCAs:            cp,
 		InsecureSkipVerify: false,
+		MinVersion:         tls.VersionTLS13,
 	})))
 	conn, err := grpc.Dial(addr, opts...)
 	if err != nil {

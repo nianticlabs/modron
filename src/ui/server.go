@@ -34,10 +34,16 @@ var (
 
 func main() {
 	flag.Parse()
-	validateEnvironment()
+	if err := validateEnvironment(); err != nil {
+		glog.Errorf("invalid environment: %v", err)
+		os.Exit(1)
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handle)
-	http.ListenAndServe(fmt.Sprintf(":%d", port), mux)
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), mux); err != nil {
+		glog.Errorf("listenAndServe: %v", err)
+		os.Exit(2)
+	}
 }
 
 func isE2eTest() bool {
@@ -86,6 +92,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 			userEmail = payload.Claims["email"].(string)
 		}
 	}
+	// deepcode ignore WebCookieSecureDisabledByDefault, deepcode ignore WebCookieMissesCallToSetHttpOnly: test server.
 	http.SetCookie(w, &http.Cookie{
 		Path:  "/",
 		Name:  "modron-user-email",

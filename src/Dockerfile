@@ -1,4 +1,4 @@
-ARG GOVERSION=1.18
+ARG GOVERSION=1.19
 
 FROM alpine:latest as ca-certificates_builder
 RUN apk add --no-cache ca-certificates

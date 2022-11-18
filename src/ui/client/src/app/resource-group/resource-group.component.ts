@@ -1,6 +1,7 @@
 import { Component, OnInit, Input } from '@angular/core';
 import { map, Observable } from 'rxjs';
 import { ModronStore } from '../state/modron.store';
+import * as pb from 'src/proto/modron_pb';
 
 @Component({
   selector: 'app-resource-group',
@@ -31,11 +32,11 @@ export class ResourceGroupComponent implements OnInit {
   }
 
   isCollectionRunning$(project: string): Observable<boolean> {
-    return this.store.collectInfo$.pipe(
+    return this.store.scanInfo$.pipe(
       map((info) => {
         let running = false;
         for (const [_, v] of info) {
-          if (v.state !== 1) {
+          if (v.state === pb.RequestStatus.ALREADY_RUNNING || v.state === pb.RequestStatus.RUNNING) {
             if (
               v.resourceGroups.includes(project) ||
               v.resourceGroups.length === 0

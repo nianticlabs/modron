@@ -209,7 +209,18 @@ func (api *GCPApiFake) ListProjectIamPolicy(name string) (*cloudresourcemanager.
 }
 
 func (api *GCPApiFake) SearchIamPolicy(ctx context.Context, scope string, query string) ([]*cloudasset.IamPolicySearchResult, error) {
-	return []*cloudasset.IamPolicySearchResult{}, nil
+	return []*cloudasset.IamPolicySearchResult{
+		{
+			Policy: &cloudasset.Policy{
+				Bindings: []*cloudasset.Binding{
+					{
+						Members: []string{"owner@example.com"},
+						Role:    "roles/owner",
+					},
+				},
+			},
+		},
+	}, nil
 }
 
 func (api *GCPApiFake) ListZones(name string) (*compute.ZoneList, error) {
@@ -608,10 +619,10 @@ func (api *GCPApiFake) ListInstances(name string) (*compute.InstanceAggregatedLi
 				Name: "instance-1",
 				NetworkInterfaces: []*compute.NetworkInterface{
 					{
-						NetworkIP: "instance-1NetworkIP",
+						NetworkIP: "192.168.0.1",
 						AccessConfigs: []*compute.AccessConfig{
 							{
-								NatIP: "instance-1NatIP",
+								NatIP: "240.241.242.243",
 							},
 						},
 					},
@@ -639,6 +650,19 @@ func (api *GCPApiFake) ListSpannerDatabases(ctx context.Context, name string) ([
 			Name: "spanner-test-db-1",
 		},
 	}, nil
+}
+
+func (api *GCPApiFake) ListUsersInGroup(ctx context.Context, group string) ([]string, error) {
+	groups := map[string][]string{
+		"emptyGroup": {},
+		"group1":     {"groups/group1/memberships/user1", "groups/group1/memberships/group2"},
+		"group2":     {"groups/groupd2/memberships/user2"},
+	}
+	if g, ok := groups[group]; ok {
+		return g, nil
+	} else {
+		return nil, fmt.Errorf("group %q doesn't exist", g)
+	}
 }
 
 func (api *GCPApiFake) ListCloudSqlDatabases(ctx context.Context, name string) ([]*sqladmin.DatabaseInstance, error) {

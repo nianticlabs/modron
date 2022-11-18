@@ -37,4 +37,6 @@ resource "google_project_service" "serviceusage_service" {
 resource "google_project_service" "stackdriver_service" {
   service = "stackdriver.googleapis.com"
 }
-
+resource "google_project_service" "spanner_service" {
+  service = "spanner.googleapis.com"
+}

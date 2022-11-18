@@ -8,11 +8,12 @@ const (
 	OrgIdEnvVar     = "ORG_ID"
 	OrgSuffixEnvVar = "ORG_SUFFIX"
 
-	GCPOwnerRole         = "owner"
-	GCPOrgIdPrefix       = "organizations/"
 	GCPEditorRole        = "editor"
+	GCPOwnerRole         = "owner"
 	GCPSecurityAdminRole = "iam.securityAdmin"
-	GCPRolePrefix        = "roles/"
+
+	GCPOrgIdPrefix = "organizations/"
+	GCPRolePrefix  = "roles/"
 )
 
 var (

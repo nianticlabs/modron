@@ -197,7 +197,7 @@ docker build -t modron-local:latest .
 export PROJECT=modron-dev
 export ORG_SUFFIX="@example.com"
 export ORG_ID="0123456789"
-docker run -e DATASET_ID="modron_bq" -e RESOURCE_TABLE_ID="resources" -e OBSERVATION_TABLE_ID="observations" -e GCP_PROJECT_ID="$PROJECT" -e PORT="8080" -e GOOGLE_APPLICATION_CREDENTIALS="/tmp/application_default_credentials.json" -e ORG_SUFFIX="$ORG_SUFFIX" -e ORG_ID="$ORG_ID" --mount "source=$HOME/.config/gcloud/application_default_credentials.json,target=/tmp/application_default_credentials.json,type=bind" -p 8080:8080 modron-local:latest
+docker run -e COLLECT_AND_SCAN_INTERVAL="12h" -e DATASET_ID="modron_bq" -e RESOURCE_TABLE_ID="resources" -e OBSERVATION_TABLE_ID="observations" -e OPERATION_TABLE_ID="operations" -e GCP_PROJECT_ID="$PROJECT" -e PORT="8080" -e GOOGLE_APPLICATION_CREDENTIALS="/tmp/application_default_credentials.json" -e ORG_SUFFIX="$ORG_SUFFIX" -e ORG_ID="$ORG_ID" --mount "source=$HOME/.config/gcloud/application_default_credentials.json,target=/tmp/application_default_credentials.json,type=bind" -p 8080:8080 modron-local:latest
 ```
 
 ## Future developments
@@ -206,3 +206,7 @@ docker run -e DATASET_ID="modron_bq" -e RESOURCE_TABLE_ID="resources" -e OBSERVA
 * Support AWS for analysis
 * Support Azure for analysis
 * Hands-off installation process
+
+## Security
+
+Report any security issue to [security@example.com](mailto:security@example.com). 

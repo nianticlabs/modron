@@ -32,10 +32,6 @@ resource "google_cloud_run_service" "nagatha" {
           value = var.project
         }
         env {
-          name  = "TEST_NOTIFICATION_RECIPIENT"
-          value = "lds@example.com"
-        }
-        env {
           name = "SENDGRID_API_KEY"
           value_from {
             secret_key_ref {

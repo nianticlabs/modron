@@ -17,8 +17,6 @@ func TestExportedKeyTooOld(t *testing.T) {
 	yesterday := now.Add(time.Hour * -24)
 	tomorrow := now.Add(time.Hour * 24)
 	oneYearAgo := now.Add(-time.Hour * 24 * 365)
-	oneYearAhead := now.Add(time.Hour * 24 * 365)
-	nonExpiring := time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
 	resources := []*pb.Resource{
 		{
 			Name:      testProjectName,
@@ -29,7 +27,7 @@ func TestExportedKeyTooOld(t *testing.T) {
 			},
 		},
 		{
-			Name:              "expiring-exported-key",
+			Name:              "rotated-exported-key",
 			Parent:            testProjectName,
 			ResourceGroupName: testProjectName,
 			IamPolicy:         &pb.IamPolicy{},
@@ -52,30 +50,6 @@ func TestExportedKeyTooOld(t *testing.T) {
 				},
 			},
 		},
-		{
-			Name:              "expiring-in-one-year-exported-key",
-			Parent:            testProjectName,
-			ResourceGroupName: testProjectName,
-			IamPolicy:         &pb.IamPolicy{},
-			Type: &pb.Resource_ExportedCredentials{
-				ExportedCredentials: &pb.ExportedCredentials{
-					CreationDate:   timestamppb.New(oneYearAgo),
-					ExpirationDate: &timestamppb.Timestamp{Seconds: oneYearAhead.Unix(), Nanos: 0},
-				},
-			},
-		},
-		{
-			Name:              "non-expiring-exported-key",
-			Parent:            testProjectName,
-			ResourceGroupName: testProjectName,
-			IamPolicy:         &pb.IamPolicy{},
-			Type: &pb.Resource_ExportedCredentials{
-				ExportedCredentials: &pb.ExportedCredentials{
-					CreationDate:   timestamppb.New(oneYearAgo),
-					ExpirationDate: timestamppb.New(nonExpiring),
-				},
-			},
-		},
 	}
 
 	got := TestRuleRun(t, resources, []model.Rule{NewExportedKeyIsTooOldRule()})
@@ -83,14 +57,9 @@ func TestExportedKeyTooOld(t *testing.T) {
 	// Expected values are ordered lexicographically.
 	want := []*pb.Observation{
 		{
-			Name:          "expiring-in-one-year-exported-key",
-			ExpectedValue: structpb.NewStringValue("sooner expiration date"),
-			ObservedValue: structpb.NewStringValue(oneYearAhead.Format("2006-01-02 15:04:05 +0000 UTC")),
-		},
-		{
-			Name:          "non-expiring-exported-key",
-			ExpectedValue: structpb.NewStringValue("sooner expiration date"),
-			ObservedValue: structpb.NewStringValue(nonExpiring.String()),
+			Name:          "outdated-exported-key",
+			ExpectedValue: structpb.NewStringValue("later creation date"),
+			ObservedValue: structpb.NewStringValue(oneYearAgo.Format("2006-01-02 15:04:05 +0000 UTC")),
 		},
 	}
 	// Sort observations lexicographically by resource name.

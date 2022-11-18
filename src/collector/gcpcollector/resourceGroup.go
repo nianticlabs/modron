@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/nianticlabs/modron/src/constants"
@@ -85,7 +86,11 @@ func (collector *GCPCollector) ListResourceGroupAdmins(ctx context.Context) (map
 			for _, u := range binding.Members {
 				users := []string{u}
 				if strings.HasPrefix(u, groupPrefix) {
-					users = []string{}
+					users, err = collector.api.ListUsersInGroup(ctx, u)
+					if err != nil {
+						glog.Warningf("cannot list users in group %q: %v", u, err)
+						continue
+					}
 				}
 				for _, user := range users {
 					user = strings.TrimPrefix(user, userPrefix)

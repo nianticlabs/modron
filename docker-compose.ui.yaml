@@ -3,15 +3,11 @@ version: '3'
 services:
   modron_proxy:
     container_name: modron_proxy
-    image: nginx:1.23-alpine
+    image: envoyproxy/envoy:v1.24-latest
     volumes:
-      - ./docker/nginx-templates:/etc/nginx/templates
+      - ./docker/envoyproxy:/etc/envoy
     ports:
-      - "8080:80"
-    environment:
-      MODRON_UI_HOST: "http://modron_ui:8080"
-      MODRON_FAKE_HOST: "http://modron_fake:8080"
-      NGINX_PORT: 80
+      - "8080:10000"
     networks:
       - modron
     depends_on:
@@ -27,6 +23,8 @@ services:
       COLLECTOR: "FAKE"
       ORG_ID: "0123456789"
       ORG_SUFFIX: "@example.com"
+      GRPC_VERBOSITY: "DEBUG"
+      GRPC_TRACE: "all"
     networks:
       - modron
 
@@ -48,7 +46,7 @@ services:
     depends_on:
       - modron_proxy
     environment:
-      CYPRESS_baseUrl: "http://modron_proxy"
+      CYPRESS_BASE_URL: "http://modron_proxy:10000"
     command: npx cypress run
     volumes:
       - ./src/ui/client/cypress:/app/cypress:ro

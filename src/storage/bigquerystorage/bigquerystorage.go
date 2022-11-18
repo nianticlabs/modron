@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/golang/glog"
 	"github.com/nianticlabs/modron/src/model"
 	"github.com/nianticlabs/modron/src/pb"
 	"github.com/nianticlabs/modron/src/storage/memstorage"
@@ -48,21 +49,21 @@ func New(
 		client:             client,
 		cache:              memstorage.New(),
 	}
-	err = storage.fetchObservations(ctx)
-	if err != nil {
+	if err := storage.fetchObservations(ctx); err != nil {
 		return nil, fmt.Errorf("fetching Observation: %v", err)
 	}
-	err = storage.fetchResources(ctx)
-	if err != nil {
+	if err := storage.fetchResources(ctx); err != nil {
 		return nil, fmt.Errorf("fetching Resources: %v", err)
+	}
+	if err := storage.fetchOperations(ctx); err != nil {
+		return nil, fmt.Errorf("fetching Operations: %v", err)
 	}
 	return storage, nil
 }
 
 // Add a set of Resources into the database
 func (bq *BigQueryStorage) BatchCreateResources(ctx context.Context, resources []*pb.Resource) ([]*pb.Resource, error) {
-	_, err := bq.cache.BatchCreateResources(ctx, resources)
-	if err != nil {
+	if _, err := bq.cache.BatchCreateResources(ctx, resources); err != nil {
 		return nil, fmt.Errorf("could not write to cache: %v", err)
 	}
 	ins := bq.client.Dataset(bq.datasetID).Table(bq.resourceTableID).Inserter()
@@ -83,8 +84,7 @@ func (bq *BigQueryStorage) BatchCreateResources(ctx context.Context, resources [
 
 // Add a set of Observations into the database
 func (bq *BigQueryStorage) BatchCreateObservations(ctx context.Context, observations []*pb.Observation) ([]*pb.Observation, error) {
-	_, err := bq.cache.BatchCreateObservations(ctx, observations)
-	if err != nil {
+	if _, err := bq.cache.BatchCreateObservations(ctx, observations); err != nil {
 		return nil, fmt.Errorf("could not write to cache: %v", err)
 	}
 	ins := bq.client.Dataset(bq.datasetID).Table(bq.observationTableID).Inserter()
@@ -124,6 +124,10 @@ func (bq *BigQueryStorage) AddOperationLog(ctx context.Context, ops []model.Oper
 			return err
 		}
 	}
+	// Add the operations to the cache as well.
+	if err := bq.cache.AddOperationLog(ctx, ops); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -152,12 +156,6 @@ func (bq *BigQueryStorage) fetchObservations(ctx context.Context) error {
 							  AND operations1.resourceGroupName = operations2.resourceGroupName)
 	  ) AS operations ON observations.scanID = operations.uuid
 	`, bq.datasetID, bq.observationTableID, bq.datasetID, bq.operationTableID, bq.datasetID, bq.operationTableID)
-	/*
-		if filter.Limit != nil {
-			queryString += `LIMIT @limit `
-			queryParameters = append(queryParameters, bigquery.QueryParameter{Name: "limit", Value: *filter.Limit})
-		}
-	*/
 	queryString += `;`
 	query = bq.client.Query(queryString)
 	query.Parameters = queryParameters
@@ -183,7 +181,49 @@ func (bq *BigQueryStorage) fetchObservations(ctx context.Context) error {
 	}
 	_, err = bq.cache.BatchCreateObservations(ctx, observations)
 	if err != nil {
-		return fmt.Errorf("could not wirte to cache : %v", err)
+		return fmt.Errorf("could not write to cache : %v", err)
+	}
+	return nil
+}
+
+func (bq *BigQueryStorage) fetchOperations(ctx context.Context) error {
+	var query *bigquery.Query
+	var queryParameters = []bigquery.QueryParameter{}
+	queryString := fmt.Sprintf(`SELECT DISTINCT uuid, resourceGroupName, opsType, statusTime, status
+		  FROM %s.%s operations1
+		  WHERE statusTime = (SELECT MAX(statusTime) 
+							FROM %s.%s as operations2 
+							WHERE status = "COMPLETED" 
+							  AND opsType = "scan" 
+							  AND operations1.resourceGroupName = operations2.resourceGroupName) ORDER BY statusTime ASC`,
+		bq.datasetID, bq.operationTableID, bq.datasetID, bq.operationTableID)
+	queryString += `;`
+	query = bq.client.Query(queryString)
+	query.Parameters = queryParameters
+
+	it, err := bq.runQuery(ctx, query)
+	if err != nil {
+		return fmt.Errorf("fetchOperations (ctx) failed for \nQuery: %v \nError: %v", queryString, err)
+	}
+	operations := []model.Operation{}
+	for {
+		var row BigQueryOperationEntry
+		err := it.Next(&row)
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		op, err := row.toModelOperation()
+		if err != nil {
+			glog.Warningf("invalid operation %v: %v", row, err)
+			continue
+		}
+		operations = append(operations, op)
+	}
+	if err := bq.cache.AddOperationLog(ctx, operations); err != nil {
+		return err
 	}
 	return nil
 }
@@ -236,7 +276,7 @@ func (bq *BigQueryStorage) fetchResources(ctx context.Context) error {
 	}
 	_, err = bq.cache.BatchCreateResources(ctx, resources)
 	if err != nil {
-		return fmt.Errorf("could not wirte to cache : %v", err)
+		return fmt.Errorf("could not write to cache : %v", err)
 	}
 	return nil
 }

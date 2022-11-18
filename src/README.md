@@ -27,6 +27,7 @@ export GRPC_GO_LOG_SEVERITY_LEVEL=info
 ## Update libraries
 
 ```
+CYPRESS_CACHE_FOLDER=/tmp npm upgrade
 CYPRESS_CACHE_FOLDER=/tmp npm install
 ```
 

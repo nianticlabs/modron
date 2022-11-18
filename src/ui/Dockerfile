@@ -1,4 +1,4 @@
-ARG GOVERSION=1.18
+ARG GOVERSION=1.19
 
 FROM node:16.16-alpine AS ui_builder
 WORKDIR /app

@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	AclUpdateIntervalSecEnvVar = "ACLINTERVAL"
+	AclUpdateIntervalSecEnvVar = "ACL_UPDATE_INTERVAL_SEC"
 )
 
 var (

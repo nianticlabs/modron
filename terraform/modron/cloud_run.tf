@@ -1,6 +1,6 @@
 resource "google_cloud_run_service" "grpc_web" {
   name     = "modron-grpc-web-${var.env}"
-  location = substr(var.zone, 0, length(var.zone)-2)
+  location = substr(var.zone, 0, length(var.zone) - 2)
 
   # We need this to avoid naming collision with CI/CD deployments.
   autogenerate_revision_name = true
@@ -8,7 +8,7 @@ resource "google_cloud_run_service" "grpc_web" {
   template {
     spec {
       service_account_name = google_service_account.modron_runner.email
-      timeout_seconds      = 300
+      timeout_seconds      = 1800
       containers {
         image = "gcr.io/${var.project}/modron:${var.env}"
         ports {
@@ -65,7 +65,7 @@ resource "google_cloud_run_service" "grpc_web" {
     }
     metadata {
       annotations = {
-        "client.knative.dev/user-image"  = "gcr.io/${var.project}/modron:${var.env}"
+        "client.knative.dev/user-image"    = "gcr.io/${var.project}/modron:${var.env}"
         "autoscaling.knative.dev/minScale" = "1"
         "autoscaling.knative.dev/maxScale" = "1"
       }
@@ -74,8 +74,8 @@ resource "google_cloud_run_service" "grpc_web" {
 
   metadata {
     annotations = {
-      "client.knative.dev/user-image"  = "gcr.io/${var.project}/modron:${var.env}"
-      "run.googleapis.com/ingress"     = "internal-and-cloud-load-balancing"
+      "client.knative.dev/user-image" = "gcr.io/${var.project}/modron:${var.env}"
+      "run.googleapis.com/ingress"    = "internal-and-cloud-load-balancing"
     }
   }
   traffic {
@@ -89,7 +89,7 @@ resource "google_cloud_run_service" "grpc_web" {
 
 resource "google_cloud_run_service" "ui" {
   name     = "modron-ui"
-  location = substr(var.zone, 0, length(var.zone)-2)
+  location = substr(var.zone, 0, length(var.zone) - 2)
 
   # We need this to avoid naming collision with CI/CD deployments.
   autogenerate_revision_name = true
@@ -118,7 +118,7 @@ resource "google_cloud_run_service" "ui" {
     }
     metadata {
       annotations = {
-        "client.knative.dev/user-image"  = "gcr.io/${var.project}/modron-ui:${var.env}"
+        "client.knative.dev/user-image"    = "gcr.io/${var.project}/modron-ui:${var.env}"
         "autoscaling.knative.dev/minScale" = "1"
         "autoscaling.knative.dev/maxScale" = "1"
       }
@@ -127,8 +127,8 @@ resource "google_cloud_run_service" "ui" {
 
   metadata {
     annotations = {
-      "client.knative.dev/user-image"  = "gcr.io/${var.project}/modron-ui:${var.env}"
-      "run.googleapis.com/ingress"     = "internal-and-cloud-load-balancing"
+      "client.knative.dev/user-image" = "gcr.io/${var.project}/modron-ui:${var.env}"
+      "run.googleapis.com/ingress"    = "internal-and-cloud-load-balancing"
     }
   }
   traffic {

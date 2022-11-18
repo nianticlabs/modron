@@ -1,0 +1,8 @@
+# Changelog
+
+## 2022-11-18
+
+* Moved to go 1.19
+* Added automated runs for scans
+* Fixed issue where last reported observation would still appear even if newer scans reported no observations
+* Fixed group member ship resolution when checking for accesses to GCP projects
