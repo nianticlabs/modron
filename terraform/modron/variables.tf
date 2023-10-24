@@ -18,7 +18,7 @@ variable "org_suffix" {
   description = "User email suffix of your organization."
   validation {
     error_message = "Org suffix must match: '^@[^@]*$'"
-    condition = regex("^@[^@]*$", var.org_suffix) == var.org_suffix
+    condition     = regex("^@[^@]*$", var.org_suffix) == var.org_suffix
   }
 }
 

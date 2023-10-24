@@ -1,17 +1,19 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MatSnackBarModule } from '@angular/material/snack-bar';
-import { FilterKeyValuePipe, FilterNoObservationsPipe } from '../filter.pipe';
-import { mapFlatRulesPipe } from '../resource-group-details/resource-group-details.pipe';
-import { ModronStore } from '../state/modron.store';
+import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { MatSnackBarModule } from "@angular/material/snack-bar";
+import { FilterKeyValuePipe, FilterNoObservationsPipe } from "../filter.pipe";
+import { mapFlatRulesPipe } from "../resource-group-details/resource-group-details.pipe";
+import { ModronStore } from "../state/modron.store";
+import { RouterTestingModule } from "@angular/router/testing";
+import { HttpClientTestingModule } from "@angular/common/http/testing";
 
-import { ResourceGroupsComponent } from './resource-groups.component';
+import { ResourceGroupsComponent } from "./resource-groups.component";
 import {
   InvalidProjectNb,
   ObsNbPipe,
   ResourceGroupsPipe,
-} from './resource-groups.pipe';
+} from "./resource-groups.pipe";
 
-describe('ResourceGroupsComponent', () => {
+describe("ResourceGroupsComponent", () => {
   let component: ResourceGroupsComponent;
   let fixture: ComponentFixture<ResourceGroupsComponent>;
 
@@ -26,7 +28,11 @@ describe('ResourceGroupsComponent', () => {
         ObsNbPipe,
         FilterNoObservationsPipe,
       ],
-      imports: [MatSnackBarModule],
+      imports: [
+        MatSnackBarModule,
+        RouterTestingModule,
+        HttpClientTestingModule,
+        ],
       providers: [ModronStore],
     }).compileComponents();
 
@@ -35,7 +41,7 @@ describe('ResourceGroupsComponent', () => {
     fixture.detectChanges();
   });
 
-  it('should create', () => {
+  it("should create", () => {
     expect(component).toBeTruthy();
   });
 });

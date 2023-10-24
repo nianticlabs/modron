@@ -1,10 +1,10 @@
+import { randomUUID } from 'crypto'
 import { dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { randomUUID } from 'crypto'
 
-import * as proto_loader from '@grpc/proto-loader'
-import * as grpc from '@grpc/grpc-js'
 import { GrpcMockServer, ProtoUtils } from '@alenon/grpc-mock-server'
+import * as grpc from '@grpc/grpc-js'
+import * as proto_loader from '@grpc/proto-loader'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -78,104 +78,91 @@ class ModronMockGrpcServer {
 
   private async initMockServer() {
     const modron_impls = {
-      GetStatusCollect: (call: any, cb: any) => {
+      GetStatusCollectAndScan: (call: any, cb: any) => {
         const req = call.request
-        let status = 0
+        let collectStatus = 0
+        let scanStatus = 0
         if (this._collectIds.has(req.collectId)) {
           if (this._collectIds.get(req.collectId) === 1) {
-            status = 1
+            collectStatus = 1
           } else {
-            status = 2
+            collectStatus = 2
           }
         }
-        console.log(`GetStatusCollect request inbound: ${JSON.stringify(req)} ${status}`)
-        cb(null, new this.mpb.GetStatusCollectResponse.constructor({
-          status: status,
-        }))
-      },
-      GetStatusScan: (call: any, cb: any) => {
-        const req = call.request
-        let status = 0
         if (this._scanIds.has(req.scanId)) {
           if (this._scanIds.get(req.scanId) === 1) {
-            status = 1
+            scanStatus = 1
           } else {
-            status = 2
+            scanStatus = 2
           }
         }
-        console.log(`GetStatusScan request inbound: ${JSON.stringify(req)} ${status}`)
-        cb(null, new this.mpb.GetStatusScanResponse.constructor({
-          status: status,
-        }))
+        let scanInfo = {
+          collectStatus: collectStatus,
+          scanStatus: scanStatus,
+        }
+        console.log(`GetStatusCollectAndScan request inbound: ${JSON.stringify(req)} ${JSON.stringify(scanInfo)}`)
+        cb(null, new this.mpb.GetStatusCollectAndScanResponse.constructor(scanInfo))
       },
-      Scan: (call: any, cb: any) => {
+      CollectAndScan: (call: any, cb: any) => {
         const req = call.request
+        const collectId = "collect-" + this._collectIds.size
         const scanId = "scan-" + this._scanIds.size
+        this._collectIds.set(collectId, 2)
         this._scanIds.set(scanId, 2)
         console.log(`scan request inbound: ${JSON.stringify(req)} ${scanId}`)
-        cb(null, new this.mpb.ScanResponse.constructor({
+        cb(null, new this.mpb.CollectAndScanResponse.constructor({
+          collectId: collectId,
           scanId: scanId,
         }))
         setTimeout(() => {
           console.log(`update ${scanId} to 1`)
-          this._scanIds.set(scanId, 1)
-        }, 1000)
-      },
-      Collect: (call: any, cb: any) => {
-        const req = call.request
-        const collectId = "collect-" + this._collectIds.size
-        this._collectIds.set(collectId, 2)
-        console.log(`collect request inbound: ${JSON.stringify(req)} ${collectId}`)
-        cb(null, new this.mpb.CollectResponse.constructor({
-          collectId: collectId,
-        }))
-        setTimeout(() => {
-          console.log(`update ${collectId} to 1`)
           this._collectIds.set(collectId, 1)
-        }, 1000)
+          this._scanIds.set(scanId, 1)
+        }, 10000)
       },
       ListObservations: (call: any, cb: any) => {
         const req = call.request
         console.log(`listObservations request inbound: ${JSON.stringify(req)}`)
 
-        if (req.resourceGroupsList === undefined || req.resourceGroupsList.length === 0) {
+        if (req.resourceGroupNames === undefined || req.resourceGroupNames.length === 0) {
           cb(null, new this.mpb.ListObservationsResponse.constructor({
             resourceGroupsObservations: [
-                  [0,[1], "projects222"] ,
-                  [0,[1], "projecta232"] ,
-                  [0,[1], "projdect424"] ,
-                  [1,[1,2,3,4], "projefct"] ,
-                  [2 ,[1,2,3,4,5] ,  "projedadfctprojectp-rojectproject"] ,
-                  [3,[1] ,  "project-projadfect-project-project-project-project-project"],
-                  [0,[1], "projeadfct222"] ,
-                  [0,[1], "project232"] ,
-                  [0,[1], "project424"] ,
-                  [1,[1,2,3,4], "project"] ,
-                  [2 ,[1,2,3,4,5] ,  "projectprojectp-rojectproject"] ,
-                  [3,[1] ,  "project-project-project-project-project-project-project"]].
+              [0, [], "projects/no-findings"],
+              [0, [1], "projects/project-1"],
+              [0, [1], "projects/project-2"],
+              [0, [1], "projects/project-3"],
+              [1, [1, 2, 3, 4], "projects/project-4"],
+              [2, [1, 2, 3, 4, 5], "projects/project-5"],
+              [3, [1], "projects/project-with-a-very-long-name"],
+              [0, [1], "projects/project-7"],
+              [0, [1], "projects/project-8"],
+              [0, [1], "projects/project-9"],
+              [1, [1, 2, 3, 4], "projects/project-10"],
+              [2, [1, 2, 3, 4, 5], "projects/project-11"],
+              [3, [1], "projects/project-12"]].
               map(e => new this.mpb.ResourceGroupObservationsPair.constructor({
                 resourceGroupName: e[2],
-                rulesObservations: [0,1,2,3,4,5,6].map( ruleNb => new this.mpb.RuleObservationPair.constructor({
-                    rule: "observation" + ruleNb,
-                    observations: (e[1] as Array<number>).filter(ele => ele ===ruleNb).map(e1 => new this.mpb.Observation.constructor({
-                      name: "observation" + e1,
+                rulesObservations: [0, 1, 2, 3, 4, 5, 6].map(ruleNb => new this.mpb.RuleObservationPair.constructor({
+                  rule: "observation" + ruleNb,
+                  observations: (e[1] as Array<number>).filter(ele => ele === ruleNb).map(e1 => new this.mpb.Observation.constructor({
+                    name: "observation" + e1,
+                    timestamp: {
+                      seconds: 123,
+                      nanos: 456,
+                    },
+                    uid: "5cedca54-a6e0-4de5-8df5-facc533f5903--" + e1,
+                    remediation: new this.mpb.Remediation.constructor({
+                      description: "some description [title](https://www.example.com)",
+                      recommendation: "do something [title](https://www.example.com)",
+                    }),
+                    resource: new this.mpb.Resource.constructor({
+                      name: "project" + e[0] + "[observation" + e1 + "]",
+                      resourceGroupName: "project" + e[0],
                       timestamp: {
-                        seconds: 123,
+                        seconds: 1273,
                         nanos: 456,
                       },
-                      uid: "5cedca54-a6e0-4de5-8df5-facc533f5903--" + e1,
-                      remediation: new this.mpb.Remediation.constructor({
-                        description: "some description [title](https://www.example.com)",
-                        recommendation: "do something [title](https://www.example.com)",
-                      }),
-                      resource: new this.mpb.Resource.constructor({
-                        name: "project"+e[0]+"[observation"+e1+"]",
-                        resourceGroupName: "project"+e[0],
-                        timestamp: {
-                          seconds: 1273,
-                          nanos: 456,
-                        },
-                      }),
+                    }),
                   })),
                 }))
               })),
@@ -183,6 +170,35 @@ class ModronMockGrpcServer {
           }))
         } else {
           cb(null, new this.mpb.ListObservationsResponse.constructor({
+            resourceGroupsObservations: [
+              [0, [1], req.resourceGroupNames[0]],
+            ].
+              map(e => new this.mpb.ResourceGroupObservationsPair.constructor({
+                resourceGroupName: e[2],
+                rulesObservations: [0, 1, 2, 3, 4, 5, 6].map(ruleNb => new this.mpb.RuleObservationPair.constructor({
+                  rule: "observation" + ruleNb,
+                  observations: (e[1] as Array<number>).filter(ele => ele === ruleNb).map(e1 => new this.mpb.Observation.constructor({
+                    name: "observation" + e1,
+                    timestamp: {
+                      seconds: new Date().getTime() / 1000,
+                      nanos: 456,
+                    },
+                    uid: "5cedca54-a6e0-4de5-8df5-facc533f5903--" + e1,
+                    remediation: new this.mpb.Remediation.constructor({
+                      description: "some description [title](https://www.example.com)",
+                      recommendation: "do something [title](https://www.example.com)",
+                    }),
+                    resource: new this.mpb.Resource.constructor({
+                      name: "project" + e[0] + "[observation" + e1 + "]",
+                      resourceGroupName: "project" + e[0],
+                      timestamp: {
+                        seconds: new Date().getTime() / 1000,
+                        nanos: 456,
+                      },
+                    }),
+                  })),
+                }))
+              })),
             nextPageToken: '',
           }))
         }

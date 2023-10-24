@@ -1,4 +1,4 @@
-FROM cypress/base:16.13.0
+FROM cypress/base:18.16.1
 WORKDIR /app
 COPY package.json .
 COPY package-lock.json .

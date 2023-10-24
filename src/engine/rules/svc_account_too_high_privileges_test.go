@@ -4,7 +4,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/exp/slices"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/nianticlabs/modron/src/model"
@@ -16,11 +17,15 @@ const (
 )
 
 func TestCheckDetectsHighPrivilege(t *testing.T) {
+	// Because of the new memoization we need a specific project name for this test.
+	testProjectName := "projects/test-project" + uuid.NewString()
+	testProjectName1 := "projects/test-project1" + uuid.NewString()
 	resources := []*pb.Resource{
 		{
-			Name:          testProjectName,
-			Parent:        "",
-			CollectionUid: collectId,
+			Name:              testProjectName,
+			Parent:            "folders/123",
+			ResourceGroupName: testProjectName,
+			CollectionUid:     collectId,
 			IamPolicy: &pb.IamPolicy{
 				Resource: nil,
 				Permissions: []*pb.Permission{
@@ -49,9 +54,10 @@ func TestCheckDetectsHighPrivilege(t *testing.T) {
 			},
 		},
 		{
-			Name:          "project-1",
-			Parent:        "",
-			CollectionUid: collectId,
+			Name:              testProjectName1,
+			Parent:            "folders/234",
+			ResourceGroupName: testProjectName1,
+			CollectionUid:     collectId,
 			IamPolicy: &pb.IamPolicy{
 				Resource: nil,
 				Permissions: []*pb.Permission{
@@ -69,6 +75,7 @@ func TestCheckDetectsHighPrivilege(t *testing.T) {
 			},
 		},
 		{
+			Uid:               uuid.NewString(),
 			Name:              "account-0",
 			Parent:            testProjectName,
 			ResourceGroupName: testProjectName,
@@ -81,6 +88,7 @@ func TestCheckDetectsHighPrivilege(t *testing.T) {
 			},
 		},
 		{
+			Uid:               uuid.NewString(),
 			Name:              "account-1",
 			Parent:            testProjectName,
 			ResourceGroupName: testProjectName,
@@ -93,9 +101,10 @@ func TestCheckDetectsHighPrivilege(t *testing.T) {
 			},
 		},
 		{
+			Uid:               uuid.NewString(),
 			Name:              "account-2",
-			Parent:            "project-1",
-			ResourceGroupName: "project-1",
+			Parent:            testProjectName1,
+			ResourceGroupName: testProjectName1,
 			CollectionUid:     collectId,
 			IamPolicy:         &pb.IamPolicy{},
 			Type: &pb.Resource_ServiceAccount{
@@ -105,9 +114,10 @@ func TestCheckDetectsHighPrivilege(t *testing.T) {
 			},
 		},
 		{
+			Uid:               uuid.NewString(),
 			Name:              "account-3",
-			Parent:            "project-1",
-			ResourceGroupName: "project-1",
+			Parent:            testProjectName1,
+			ResourceGroupName: testProjectName1,
 			CollectionUid:     collectId,
 			IamPolicy:         &pb.IamPolicy{},
 			Type: &pb.Resource_ServiceAccount{
@@ -120,18 +130,34 @@ func TestCheckDetectsHighPrivilege(t *testing.T) {
 
 	want := []*pb.Observation{
 		{
+			Name: TooHighPrivilegesRuleName,
+			Resource: &pb.Resource{
+				Name: "account-0",
+			},
 			ExpectedValue: structpb.NewStringValue(""),
 			ObservedValue: structpb.NewStringValue("iam.serviceAccountAdmin"),
 		},
 		{
+			Name: TooHighPrivilegesRuleName,
+			Resource: &pb.Resource{
+				Name: "account-1",
+			},
 			ExpectedValue: structpb.NewStringValue(""),
 			ObservedValue: structpb.NewStringValue("dataflow.admin"),
 		},
 		{
+			Name: TooHighPrivilegesRuleName,
+			Resource: &pb.Resource{
+				Name: "account-2",
+			},
 			ExpectedValue: structpb.NewStringValue(""),
 			ObservedValue: structpb.NewStringValue("iam.serviceAccountUser"),
 		},
 		{
+			Name: TooHighPrivilegesRuleName,
+			Resource: &pb.Resource{
+				Name: "account-3",
+			},
 			ExpectedValue: structpb.NewStringValue(""),
 			ObservedValue: structpb.NewStringValue("iam.serviceAccountUser"),
 		},
@@ -139,12 +165,7 @@ func TestCheckDetectsHighPrivilege(t *testing.T) {
 
 	got := TestRuleRun(t, resources, []model.Rule{NewTooHighPrivilegesRule()})
 
-	// Sort observations lexicographically by resource name.
-	slices.SortStableFunc(got, func(lhs, rhs *pb.Observation) bool {
-		return lhs.Resource.Name < rhs.Resource.Name
-	})
-
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer)); diff != "" {
+	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
 		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
 	}
 }

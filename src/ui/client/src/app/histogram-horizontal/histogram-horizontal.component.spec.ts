@@ -1,8 +1,8 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from "@angular/core/testing";
 
-import { HistogramHorizontalComponent } from './histogram-horizontal.component';
+import { HistogramHorizontalComponent } from "./histogram-horizontal.component";
 
-describe('HistogramHorizontalComponent', () => {
+describe("HistogramHorizontalComponent", () => {
   let component: HistogramHorizontalComponent;
   let fixture: ComponentFixture<HistogramHorizontalComponent>;
 
@@ -16,7 +16,7 @@ describe('HistogramHorizontalComponent', () => {
     fixture.detectChanges();
   });
 
-  it('should create', () => {
+  it("should create", () => {
     expect(component).toBeTruthy();
   });
 });

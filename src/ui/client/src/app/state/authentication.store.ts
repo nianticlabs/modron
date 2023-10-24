@@ -1,5 +1,5 @@
-import { Injectable } from '@angular/core';
-import { User, AuthenticationService } from '../authentication.service';
+import { Injectable } from "@angular/core";
+import { User, AuthenticationService } from "../authentication.service";
 
 @Injectable()
 export class AuthenticationStore {

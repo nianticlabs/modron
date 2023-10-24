@@ -8,18 +8,16 @@ import (
 	"github.com/nianticlabs/modron/src/pb"
 )
 
-// Filter struct that can be used to filter results from the database
-// All fields are optional, so we use pointers here to check for nil
 type StorageFilter struct {
-	Limit         *int
-	ResourceNames *[]string
-	// TODO: This should be `*[]string` and the conversion to `[]int` done internally.
-	ResourceTypes      *[]int
-	ResourceGroupNames *[]string
-	ResourceIDs        *[]string
-	ParentNames        *[]string
-	StartTime          *time.Time
-	TimeOffset         *time.Duration
+	Limit              int
+	ResourceNames      []string
+	ResourceTypes      []string
+	ResourceGroupNames []string
+	ResourceIDs        []string
+	ParentNames        []string
+	OperationID        string
+	StartTime          time.Time
+	TimeOffset         time.Duration
 }
 
 type Storage interface {
@@ -30,4 +28,5 @@ type Storage interface {
 
 	AddOperationLog(ctx context.Context, ops []Operation) error
 	FlushOpsLog(ctx context.Context) error
+	PurgeIncompleteOperations(ctx context.Context) error
 }

@@ -1,16 +1,17 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute } from '@angular/router';
-import { reverseSortPipe } from '../filter.pipe';
-import { ObservationsPipe } from '../resource-groups/resource-groups.pipe';
-import { AuthenticationStore } from '../state/authentication.store';
-import { ModronStore } from '../state/modron.store';
-import { NotificationStore } from '../state/notification.store';
+import { ComponentFixture, TestBed } from "@angular/core/testing"
+import { ViewportScroller } from "@angular/common"
+import { ActivatedRoute } from "@angular/router"
+import { reverseSortPipe } from "../filter.pipe"
+import { ObservationsPipe } from "../resource-groups/resource-groups.pipe"
+import { AuthenticationStore } from "../state/authentication.store"
+import { ModronStore } from "../state/modron.store"
+import { NotificationStore } from "../state/notification.store"
 
-import { ResourceGroupDetailsComponent } from './resource-group-details.component';
+import { ResourceGroupDetailsComponent } from "./resource-group-details.component"
 
-describe('ResourceGroupDetailsComponent', () => {
-  let component: ResourceGroupDetailsComponent;
-  let fixture: ComponentFixture<ResourceGroupDetailsComponent>;
+describe("ResourceGroupDetailsComponent", () => {
+  let component: ResourceGroupDetailsComponent
+  let fixture: ComponentFixture<ResourceGroupDetailsComponent>
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -23,27 +24,28 @@ describe('ResourceGroupDetailsComponent', () => {
         ModronStore,
         NotificationStore,
         AuthenticationStore,
+        ViewportScroller,
         {
           provide: ActivatedRoute,
           useValue: {
             snapshot: {
               paramMap: {
                 get(): string {
-                  return 'mock-observation-id';
+                  return "mock-observation-id"
                 },
               },
             },
           },
         },
       ],
-    }).compileComponents();
+    }).compileComponents()
 
-    fixture = TestBed.createComponent(ResourceGroupDetailsComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
+    fixture = TestBed.createComponent(ResourceGroupDetailsComponent)
+    component = fixture.componentInstance
+    fixture.detectChanges()
+  })
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-});
+  it("should create", () => {
+    expect(component).toBeTruthy()
+  })
+})

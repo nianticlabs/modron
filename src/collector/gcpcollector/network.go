@@ -1,18 +1,18 @@
 package gcpcollector
 
 import (
-	"golang.org/x/net/context"
+	"github.com/nianticlabs/modron/src/common"
 	"github.com/nianticlabs/modron/src/pb"
+
+	"golang.org/x/net/context"
 )
 
-var (
-	subnetworkPurposeList = map[string]struct{}{
-		"PRIVATE": {},
-	}
-)
+var subnetworkPurposeList = map[string]struct{}{
+	"PRIVATE": {},
+}
 
 func (collector *GCPCollector) ListNetworks(ctx context.Context, resourceGroup *pb.Resource) ([]*pb.Resource, error) {
-	resRegions, err := collector.api.ListRegions(resourceGroup.Name)
+	regions, err := collector.api.ListRegions(ctx, resourceGroup.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -20,12 +20,12 @@ func (collector *GCPCollector) ListNetworks(ctx context.Context, resourceGroup *
 	networkIps := map[string][]string{}
 	networkIds := map[string][]uint64{}
 	networkGoogleAccessV4 := map[string]bool{}
-	for _, region := range resRegions.Items {
-		subNetworks, err := collector.api.ListSubNetworksByRegion(resourceGroup.Name, region.Name)
+	for _, region := range regions {
+		subNetworks, err := collector.api.ListSubNetworksByRegion(ctx, resourceGroup.Name, region.Name)
 		if err != nil {
 			return nil, err
 		}
-		for _, subNetwork := range subNetworks.Items {
+		for _, subNetwork := range subNetworks {
 			networkIds[subNetwork.Name] = append(networkIds[subNetwork.Name], subNetwork.Id)
 			networkIps[subNetwork.Name] = append(networkIps[subNetwork.Name], subNetwork.IpCidrRange)
 			if _, ok := subnetworkPurposeList[subNetwork.Purpose]; ok {
@@ -38,7 +38,7 @@ func (collector *GCPCollector) ListNetworks(ctx context.Context, resourceGroup *
 	networks := []*pb.Resource{}
 	for netName, Ips := range networkIps {
 		networks = append(networks, &pb.Resource{
-			Uid:               collector.getNewUid(),
+			Uid:               common.GetUUID(3),
 			ResourceGroupName: resourceGroup.Name,
 			Name:              formatResourceName(netName, networkIds[netName]),
 			Parent:            resourceGroup.Name,

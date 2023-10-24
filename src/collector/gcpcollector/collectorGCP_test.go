@@ -3,9 +3,6 @@ package gcpcollector
 import (
 	"context"
 	"flag"
-	"fmt"
-	"os"
-	"strings"
 	"testing"
 
 	"github.com/nianticlabs/modron/src/model"
@@ -18,12 +15,12 @@ var (
 )
 
 func init() {
-	flag.StringVar(&collectorTestProjectId, "projectId", "modron-test-project", "GCP project Id")
+	flag.StringVar(&collectorTestProjectId, "projectId", testProjectID, "GCP project Id")
 	flag.StringVar(&projectListFile, "projectIdList", "resourceGroupList.txt", "GCP project Id list")
 }
 
 const (
-	testProjectID = "modron-test"
+	testProjectID = "projects/modron-test"
 	collectId     = "collectId-1"
 )
 
@@ -48,7 +45,7 @@ func TestResourceGroupResources(t *testing.T) {
 		}
 	}
 
-	wantResourcesCollected := 21
+	wantResourcesCollected := 26 // TODO: Create a better test for this functionality
 	if len(resourcesCollected) != wantResourcesCollected {
 		t.Errorf("resources collected: got %d, want %d", len(resourcesCollected), wantResourcesCollected)
 	}
@@ -69,7 +66,7 @@ func TestResourceGroup(t *testing.T) {
 	if resourceGroup.Parent != "" {
 		t.Errorf("wrong resourceGroup Parent: %v", resourceGroup.Name)
 	}
-	if len(resourceGroup.IamPolicy.Permissions) != 5 {
+	if len(resourceGroup.IamPolicy.Permissions) != 6 {
 		t.Errorf("iam policy count: got %d, want %d", len(resourceGroup.IamPolicy.Permissions), 5)
 	}
 	if resourceGroup.CollectionUid != collectId {
@@ -82,17 +79,17 @@ func TestCollectAndStore(t *testing.T) {
 	storage := memstorage.New()
 	gcpCollector := NewFake(ctx, storage)
 
-	limit := 100
 	limitFilter := model.StorageFilter{
-		Limit: &limit,
+		Limit: 100,
 	}
 
-	testProjectID := "testResourceGroupName1"
-	errors := gcpCollector.CollectAndStoreResources(ctx, collectId, testProjectID)
+	for _, testResourceID := range []string{"organizations/1111", testProjectID} {
+		errors := gcpCollector.CollectAndStoreResources(ctx, collectId, testResourceID)
 
-	if len(errors) != 0 {
-		for _, e := range errors {
-			t.Errorf("error storing resources: %v", e)
+		if len(errors) != 0 {
+			for _, e := range errors {
+				t.Errorf("CollectAndStoreResources(ctx, %s, %s): %v", collectId, testResourceID, e)
+			}
 		}
 	}
 
@@ -108,77 +105,8 @@ func TestCollectAndStore(t *testing.T) {
 		t.Errorf("error storing resources: %v", err)
 	}
 
-	wantResourcesStored := 22
+	wantResourcesStored := 30 // TODO: Create a better test for this functionality
 	if len(res) != wantResourcesStored {
 		t.Errorf("stored resources: got %d, want %d", len(res), wantResourcesStored)
 	}
-
-}
-
-func TestOnRealGCPProject(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping test in short mode: long test and needed GCP credentials")
-	}
-
-	limit := 100000
-	limitFilter := model.StorageFilter{
-		Limit: &limit,
-	}
-
-	// Initialize Collector
-	ctx := context.Background()
-	storage := memstorage.New()
-	gcpCollector, err := New(ctx, storage)
-	if err != nil {
-		t.Fatalf("New(): %v", err)
-	}
-
-	errors := gcpCollector.CollectAndStoreResources(ctx, collectId, collectorTestProjectId)
-	if len(errors) > 0 {
-		t.Errorf("CollectAndStoreResources(): %v", errors)
-	}
-	resourcesCollected, err := storage.ListResources(ctx, limitFilter)
-	if err != nil {
-		t.Errorf("storage.ListResources: %v", err)
-	}
-	fmt.Printf("Collected %v resources\n", len(resourcesCollected))
-	fmt.Printf("Resources: %v\n", resourcesCollected)
-}
-
-//go test -v -run ^TestOnRealGCPProjectAll$ github.com/nianticlabs/modron/src/collector/gcpcollector -timeout 99999s
-func TestOnRealGCPProjectAll(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping test in short mode: long test and needed GCP credentials")
-	}
-
-	limit := 100000
-	limitFilter := model.StorageFilter{
-		Limit: &limit,
-	}
-
-	// Initialize Collector
-	ctx := context.Background()
-	storage := memstorage.New()
-	gcpCollector, err := New(ctx, storage)
-	if err != nil {
-		t.Fatalf("New(): %v", err)
-	}
-
-	content, err := os.ReadFile(projectListFile)
-	if err != nil {
-		t.Errorf("error with projectID list file: %v", err)
-	}
-	projectIDs := strings.Split(string(content), "\n")
-
-	errors := gcpCollector.CollectAndStoreAllResourceGroupResources(ctx, collectId, projectIDs)
-	if len(errors) > 0 {
-		t.Errorf("CollectAndStoreResources(): %v", errors)
-	}
-
-	resources, err := storage.ListResources(ctx, limitFilter)
-	if err != nil {
-		t.Errorf("storage.ListResources: %v", err)
-	}
-
-	fmt.Printf("Collected %v resources\n", len(resources))
 }

@@ -17,6 +17,7 @@
     margin: 0;
     padding: 0;
   }
+
   h4 {
     margin: 0;
     padding: 0;
@@ -25,6 +26,7 @@
   a {
     color: rgb(0, 0, 0);
   }
+
   a:link {
     text-decoration: none;
   }
@@ -49,11 +51,28 @@
         grid-template-columns: 100px 1fr;
       }
     }
+
     code {
       background-color: rgb(248, 248, 248);
       padding: 3px 10px;
     }
   }
+
+  .expanded {
+    font-weight: bold;
+    font-size: 1.5em;
+    padding: 10px;
+  }
+
+  span.expand {
+    font-weight: bold;
+    font-size: 1.5em;
+    padding: 10px;
+  }
+}
+
+.app-observation:hover span.expand {
+  text-decoration: underline;
 }
 
 .remediation {

@@ -3,7 +3,7 @@
 ## Build modron and push to Google Cloud Registry
 
 ```
-gcloud --project modron-dev builds submit . --tag gcr.io/modron-dev/modron:dev --timeout=900
+gcloud builds submit . --tag gcr.io/modron-dev/modron:dev --timeout=900
 ```
 
 This applies the label `dev` on the image you're pushing.
@@ -12,7 +12,9 @@ This image is expected to run on modron-dev environment.
 Deploy to cloud run dev:
 
 ```
-gcloud --project modron-dev run deploy modron-dev --platform=managed --image=gcr.io/modron-dev/modron:dev --region=us-central1 --service-account=$DEV_RUNNER_SA_NAME
+DEV_RUNNER_SA_NAME=$PROJECT-runner@$PROJECT.iam.gserviceaccount.com
+gcloud run deploy modron-grpc-web-dev --platform=managed --image=gcr.io/modron-dev/modron:dev --region=us-central1 --service-account=$DEV_RUNNER_SA_NAME
+gcloud run services update-traffic modron-ui --to-revisions LATEST=100 --region=us-central1
 ```
 
 ## Debug

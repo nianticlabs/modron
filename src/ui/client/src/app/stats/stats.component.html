@@ -10,8 +10,8 @@
         <div class="main-stat-bloc good">
           <h1>
             {{
-              (obs | mapFlatRules).size -
-                (obs | mapFlatRules | keyvalue | invalidProjectNb)
+            (obs | mapFlatRules).size -
+            (obs | mapFlatRules | keyvalue | invalidProjectNb)
             }}
           </h1>
           <h2>compliant projects</h2>
@@ -24,7 +24,7 @@
 
         <div class="main-stat-bloc bad">
           <h1>{{ (obs | mapFlatRules | observations).length }}</h1>
-          <h2>observations</h2>
+          <h2>obser&shy;<wbr>vations</h2>
         </div>
 
         <div class="main-stat-bloc bad">
@@ -34,163 +34,72 @@
       </div>
 
       <div>
-        <div
-          *ngFor="
+        <div *ngFor="
             let obsType of this.mapByType(obs) | keyvalue | reverseSortByLength;
             trackBy: this.identity
-          "
-        >
+          ">
           <div *ngIf="obsType.value | mapByObservedValues; let obsStat">
             <div *ngIf="obsType.value.length === 0" class="rule-header">
               <div class="inline">
-                <h1>{{ obsType.key }}:</h1>
-                <h1 style="color: #24a148">✔ you pass all the checks</h1>
+                <a [routerLink]="['./']" fragment="{{ obsType.key }}">
+                  <h1 id="{{ obsType.key }}">{{ obsType.key }}:</h1>
+                  <h1 style="color: #24a148">✔ you pass all the checks</h1>
+                </a>
               </div>
             </div>
 
             <div *ngIf="obsType.value.length > 0" class="rule-header">
-              <h1>
-                {{ obsType.key }}: {{ obsType.value.length }} total observations
-              </h1>
+              <a [routerLink]="['./']" fragment="{{ obsType.key }}">
+                <h1 id="{{ obsType.key }}">
+                  {{ obsType.key }}: {{ obsType.value.length }} total observations
+                </h1>
+              </a>
               <div class="buttons">
                 <div class="hover-note" data-hover="close search">
-                  <svg
-                    (click)="this.toggleSearch(obsType.key)"
-                    *ngIf="this.displaySearchRules.get(obsType.key)"
-                    viewBox="0 0 500 500"
-                  >
-                    <circle
-                      cx="207.49999"
-                      cy="188.99999"
-                      fill="#FFFFFF"
-                      id="svg_1"
-                      r="135.61386"
-                      stroke="#000000"
-                      stroke-width="50"
-                    />
-                    <path
-                      d="m422.99999,447c0,0 -125.99999,-143 -125.99999,-143c0,0 125.99999,143 125.99999,143z"
-                      fill="#FFFFFF"
-                      id="svg_2"
-                      stroke="#000000"
-                      stroke-linejoin="round"
-                      stroke-width="50"
-                    />
-                    <path
-                      d="m422.99999,447c0,0 -125.99999,-143 -125.99999,-143c0,0 125.99999,143 125.99999,143z"
-                      fill="#FFFFFF"
-                      id="svg_3"
-                      stroke="#000000"
-                      stroke-linejoin="round"
-                      stroke-width="50"
-                    />
-                    <path
-                      d="m256.96984,189.97015c0,0 -96.99999,0 -96.99999,0c0,0 96.99999,0 96.99999,0z"
-                      fill="#FFFFFF"
-                      id="svg_4"
-                      stroke="#000000"
-                      stroke-linejoin="round"
-                      stroke-width="50"
-                      transform="matrix(0.99995 0.00999965 -0.00999965 0.99995 1.94021 -2.04528)"
-                    />
+                  <svg (click)="this.toggleSearch(obsType.key)" *ngIf="this.displaySearchRules.get(obsType.key)"
+                    viewBox="0 0 500 500">
+                    <circle cx="207.49999" cy="188.99999" fill="#FFFFFF" id="svg_1" r="135.61386" stroke="#000000"
+                      stroke-width="50" />
+                    <path d="m422.99999,447c0,0 -125.99999,-143 -125.99999,-143c0,0 125.99999,143 125.99999,143z"
+                      fill="#FFFFFF" id="svg_2" stroke="#000000" stroke-linejoin="round" stroke-width="50" />
+                    <path d="m422.99999,447c0,0 -125.99999,-143 -125.99999,-143c0,0 125.99999,143 125.99999,143z"
+                      fill="#FFFFFF" id="svg_3" stroke="#000000" stroke-linejoin="round" stroke-width="50" />
+                    <path d="m256.96984,189.97015c0,0 -96.99999,0 -96.99999,0c0,0 96.99999,0 96.99999,0z" fill="#FFFFFF"
+                      id="svg_4" stroke="#000000" stroke-linejoin="round" stroke-width="50"
+                      transform="matrix(0.99995 0.00999965 -0.00999965 0.99995 1.94021 -2.04528)" />
                   </svg>
                 </div>
 
                 <div class="hover-note" data-hover="list obs.">
-                  <svg
-                    (click)="this.toggleSearch(obsType.key)"
-                    *ngIf="!this.displaySearchRules.get(obsType.key)"
-                    viewBox="0 0 500 500"
-                  >
-                    <circle
-                      cx="207.49999"
-                      cy="188.99999"
-                      fill="#FFFFFF"
-                      id="svg_1"
-                      r="135.61386"
-                      stroke="#000000"
-                      stroke-width="50"
-                    />
-                    <path
-                      d="m422.99999,447c0,0 -125.99999,-143 -125.99999,-143c0,0 125.99999,143 125.99999,143z"
-                      fill="#FFFFFF"
-                      id="svg_2"
-                      stroke="#000000"
-                      stroke-linejoin="round"
-                      stroke-width="50"
-                    />
-                    <path
-                      d="m422.99999,447c0,0 -125.99999,-143 -125.99999,-143c0,0 125.99999,143 125.99999,143z"
-                      fill="#FFFFFF"
-                      id="svg_3"
-                      stroke="#000000"
-                      stroke-linejoin="round"
-                      stroke-width="50"
-                    />
+                  <svg (click)="this.toggleSearch(obsType.key)" *ngIf="!this.displaySearchRules.get(obsType.key)"
+                    viewBox="0 0 500 500">
+                    <circle cx="207.49999" cy="188.99999" fill="#FFFFFF" id="svg_1" r="135.61386" stroke="#000000"
+                      stroke-width="50" />
+                    <path d="m422.99999,447c0,0 -125.99999,-143 -125.99999,-143c0,0 125.99999,143 125.99999,143z"
+                      fill="#FFFFFF" id="svg_2" stroke="#000000" stroke-linejoin="round" stroke-width="50" />
+                    <path d="m422.99999,447c0,0 -125.99999,-143 -125.99999,-143c0,0 125.99999,143 125.99999,143z"
+                      fill="#FFFFFF" id="svg_3" stroke="#000000" stroke-linejoin="round" stroke-width="50" />
                     <path
                       d="m256.99757,190.48498c0,0 -96.99514,-0.96997 -96.99514,-0.96997c0,0 96.99514,0.96997 96.99514,0.96997z"
-                      fill="#FFFFFF"
-                      id="svg_4"
-                      stroke="#000000"
-                      stroke-linejoin="round"
-                      stroke-width="50"
-                    />
+                      fill="#FFFFFF" id="svg_4" stroke="#000000" stroke-linejoin="round" stroke-width="50" />
                     <path
                       d="m256.99757,190.48498c0,0 -96.99514,-0.96997 -96.99514,-0.96997c0,0 96.99514,0.96997 96.99514,0.96997z"
-                      fill="#FFFFFF"
-                      id="svg_5"
-                      stroke="#000000"
-                      stroke-linejoin="round"
-                      stroke-width="50"
-                    />
+                      fill="#FFFFFF" id="svg_5" stroke="#000000" stroke-linejoin="round" stroke-width="50" />
                     <path
                       d="m256.99757,190.48498c0,0 -96.99514,-0.96997 -96.99514,-0.96997c0,0 96.99514,0.96997 96.99514,0.96997z"
-                      fill="#FFFFFF"
-                      id="svg_6"
-                      stroke="#000000"
-                      stroke-linejoin="round"
-                      stroke-width="50"
-                      transform="rotate(90 208.5 190)"
-                    />
+                      fill="#FFFFFF" id="svg_6" stroke="#000000" stroke-linejoin="round" stroke-width="50"
+                      transform="rotate(90 208.5 190)" />
                   </svg>
                 </div>
 
                 <div class="hover-note" data-hover="export to .csv">
-                  <svg
-                    (click)="this.exportCsvObs(obsType.value, obsType.key)"
-                    viewBox="0 0 500 500"
-                  >
-                    <rect
-                      fill="#FFFFFF"
-                      height="418.72469"
-                      id="svg_1"
-                      stroke="#000000"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="50"
-                      width="307.00001"
-                      x="100"
-                      y="35.27531"
-                    />
-                    <path
-                      d="m252,120l-1,160l1,-160z"
-                      fill="#FFFFFF"
-                      id="svg_2"
-                      stroke="#000000"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="50"
-                      transform="matrix(1 0 0 1 0 0)"
-                    />
-                    <path
-                      d="m311,247c0,0 -61,70 -61,70c0,0 -94,-101 -49,-52"
-                      fill="transparent"
-                      id="svg_3"
-                      stroke="#000000"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="50"
-                    />
+                  <svg (click)="this.exportCsvObs(obsType.value, obsType.key)" viewBox="0 0 500 500">
+                    <rect fill="#FFFFFF" height="418.72469" id="svg_1" stroke="#000000" stroke-linecap="round"
+                      stroke-linejoin="round" stroke-width="50" width="307.00001" x="100" y="35.27531" />
+                    <path d="m252,120l-1,160l1,-160z" fill="#FFFFFF" id="svg_2" stroke="#000000" stroke-linecap="round"
+                      stroke-linejoin="round" stroke-width="50" transform="matrix(1 0 0 1 0 0)" />
+                    <path d="m311,247c0,0 -61,70 -61,70c0,0 -94,-101 -49,-52" fill="transparent" id="svg_3"
+                      stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="50" />
                   </svg>
                 </div>
               </div>
@@ -200,9 +109,7 @@
               <app-search-obs [obs]="obsType.value"></app-search-obs>
             </div>
 
-            <app-histogram-horizontal
-              [data]="obsStat"
-            ></app-histogram-horizontal>
+            <app-histogram-horizontal [data]="obsStat"></app-histogram-horizontal>
           </div>
         </div>
       </div>

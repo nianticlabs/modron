@@ -13,15 +13,11 @@ resource "google_cloud_run_service" "nagatha" {
         image = "gcr.io/${var.project}/nagatha:dev"
         ports {
           container_port = 8080
-          name           = "h2c"
+          name           = "http1"
         }
         env {
           name  = "EXCEPTION_TABLE_ID"
           value = "nagatha_bq.exceptions"
-        }
-        env {
-          name  = "NOTIFICATION_TABLE_ID"
-          value = "nagatha_bq.notifications"
         }
         env {
           name  = "EMAIL_SENDER_ADDRESS"
@@ -30,6 +26,14 @@ resource "google_cloud_run_service" "nagatha" {
         env {
           name  = "GCP_PROJECT_ID"
           value = var.project
+        }
+        env {
+          name  = "NOTIFICATION_TABLE_ID"
+          value = "nagatha_bq.notifications"
+        }
+        env {
+          name  = "NOTIFY_TRIGGER_SUBSCRIPTION"
+          value = google_pubsub_subscription.notify_all_sub.name
         }
         env {
           name = "SENDGRID_API_KEY"
@@ -43,7 +47,7 @@ resource "google_cloud_run_service" "nagatha" {
         resources {
           limits = {
             cpu    = "1000m"
-            memory = "128Mi"
+            memory = "256Mi"
           }
         }
       }

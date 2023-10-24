@@ -127,7 +127,7 @@ type Notification struct {
 	Uuid         string                 `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
 	SourceSystem string                 `protobuf:"bytes,2,opt,name=source_system,json=sourceSystem,proto3" json:"source_system,omitempty"`
 	Name         string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Recipient    string                 `protobuf:"bytes,4,opt,name=recipient,proto3" json:"recipient,omitempty"`
+	UserEmail    string                 `protobuf:"bytes,4,opt,name=userEmail,proto3" json:"userEmail,omitempty"`
 	Content      string                 `protobuf:"bytes,5,opt,name=content,proto3" json:"content,omitempty"`
 	CreatedOn    *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_on,json=createdOn,proto3" json:"created_on,omitempty"`
 	SentOn       *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=sent_on,json=sentOn,proto3" json:"sent_on,omitempty"`
@@ -187,9 +187,9 @@ func (x *Notification) GetName() string {
 	return ""
 }
 
-func (x *Notification) GetRecipient() string {
+func (x *Notification) GetUserEmail() string {
 	if x != nil {
-		return x.Recipient
+		return x.UserEmail
 	}
 	return ""
 }

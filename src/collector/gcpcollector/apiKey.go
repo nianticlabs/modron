@@ -3,30 +3,33 @@ package gcpcollector
 import (
 	"fmt"
 
+	"github.com/nianticlabs/modron/src/common"
+	"github.com/nianticlabs/modron/src/constants"
+	"github.com/nianticlabs/modron/src/pb"
+
 	"golang.org/x/net/context"
 	"google.golang.org/api/apikeys/v2"
-	"github.com/nianticlabs/modron/src/pb"
 )
 
 const (
-	globalProjectResourceID = "projects/%s/locations/global"
+	globalProjectResourceID = "%s/locations/global"
 )
 
 func (collector *GCPCollector) ListApiKeys(ctx context.Context, resourceGroup *pb.Resource) ([]*pb.Resource, error) {
-	name := fmt.Sprintf(globalProjectResourceID, resourceGroup.Name)
+	name := fmt.Sprintf(globalProjectResourceID, constants.ResourceWithProjectsPrefix(resourceGroup.Name))
 
 	apiKeys := []*pb.Resource{}
 
-	req, err := collector.api.ListApiKeys(name)
+	keys, err := collector.api.ListApiKeys(ctx, name)
 	if err != nil {
 		return nil, err
 	}
-	for _, key := range req.Keys {
+	for _, key := range keys {
 		// TODO : handle other types of GCP API keys restrictions
 		// example : BrowserKeyRestrictions , AndroidKeyRestrictions , etc..
 		scopes := getApiKeyScopes(key)
 		apiKeys = append(apiKeys, &pb.Resource{
-			Uid:               collector.getNewUid(),
+			Uid:               common.GetUUID(3),
 			ResourceGroupName: resourceGroup.Name,
 			Name:              formatResourceName(key.Name, key.Uid),
 			Parent:            resourceGroup.Name,

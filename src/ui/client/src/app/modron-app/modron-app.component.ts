@@ -1,12 +1,12 @@
-import { Component, OnInit } from '@angular/core'
-import { environment } from 'src/environments/environment'
+import { Component } from "@angular/core"
+import { environment } from "src/environments/environment"
 
 @Component({
-  selector: 'app-modron-app',
-  templateUrl: './modron-app.component.html',
-  styleUrls: ['./modron-app.component.scss'],
+  selector: "app-modron-app",
+  templateUrl: "./modron-app.component.html",
+  styleUrls: ["./modron-app.component.scss"],
 })
-export class ModronAppComponent implements OnInit {
+export class ModronAppComponent {
   public organization: string
 
   constructor() {
@@ -16,6 +16,4 @@ export class ModronAppComponent implements OnInit {
   get production(): boolean {
     return environment.production
   }
-
-  ngOnInit(): void { }
 }

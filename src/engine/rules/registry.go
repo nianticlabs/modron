@@ -17,7 +17,7 @@ func GetRule(name string) (model.Rule, error) {
 	if rule, ok := rules.Load(name); ok {
 		return rule.(model.Rule), nil
 	}
-	return nil, fmt.Errorf(`could not find rule "%s"`, name)
+	return nil, fmt.Errorf("could not find rule %q", name)
 }
 
 func GetRules() []model.Rule {

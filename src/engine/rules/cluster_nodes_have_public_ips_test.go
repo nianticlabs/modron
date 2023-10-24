@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/exp/slices"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/types/known/structpb"
 	"github.com/nianticlabs/modron/src/model"
 	"github.com/nianticlabs/modron/src/pb"
@@ -13,8 +13,9 @@ import (
 func TestPublicClusterNodesDetection(t *testing.T) {
 	resources := []*pb.Resource{
 		{
-			Name:   testProjectName,
-			Parent: "",
+			Name:              testProjectName,
+			Parent:            "",
+			ResourceGroupName: testProjectName,
 			Type: &pb.Resource_ResourceGroup{
 				ResourceGroup: &pb.ResourceGroup{},
 			},
@@ -46,17 +47,16 @@ func TestPublicClusterNodesDetection(t *testing.T) {
 	// Expected values are ordered lexicographically.
 	want := []*pb.Observation{
 		{
-			Name:          "public-cluster",
+			Name: ClusterNodesHavePublicIps,
+			Resource: &pb.Resource{
+				Name: "public-cluster",
+			},
 			ExpectedValue: structpb.NewStringValue("private"),
 			ObservedValue: structpb.NewStringValue("public"),
 		},
 	}
-	// Sort observations lexicographically by resource name.
-	slices.SortStableFunc(got, func(lhs, rhs *pb.Observation) bool {
-		return lhs.Resource.Name < rhs.Resource.Name
-	})
 
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer)); diff != "" {
+	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
 		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
 	}
 }

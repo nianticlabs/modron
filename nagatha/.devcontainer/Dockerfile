@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 golang:1.18-alpine
+FROM --platform=linux/amd64 golang:1.20-alpine
 
 RUN apk -U add git gcompat tzdata zip ca-certificates terraform python3 protobuf-dev
 # Install the Google Cloud SDK. We could use the google image, but alpine there is severely outdated.

@@ -9,24 +9,24 @@ import (
 )
 
 type Exception struct {
-	Uuid             string
-	SourceSystem     string
-	UserEmail        string
-	NotificationName string
-	Justification    string
-	CreatedOn        time.Time
-	ValidUntil       time.Time
+	Uuid             string    `json:"uuid,omitempty"`
+	SourceSystem     string    `json:"sourceSystem,omitempty"`
+	UserEmail        string    `json:"userEmail,omitempty"`
+	NotificationName string    `json:"notification_name,omitempty"`
+	Justification    string    `json:"justification,omitempty"`
+	CreatedOn        time.Time `json:"createdOn,omitempty"`
+	ValidUntil       time.Time `json:"validUntil,omitempty"`
 }
 
 type Notification struct {
-	Uuid         string
-	SourceSystem string
-	Name         string
-	Recipient    string
-	Content      string
-	CreatedOn    time.Time
-	SentOn       time.Time
-	Interval     time.Duration
+	Uuid         string        `json:"uuid,omitempty"`
+	SourceSystem string        `json:"sourceSystem,omitempty"`
+	Name         string        `json:"name,omitempty"`
+	Recipient    string        `json:"recipient,omitempty"`
+	Content      string        `json:"content,omitempty"`
+	CreatedOn    time.Time     `json:"created_on,omitempty"`
+	SentOn       time.Time     `json:"sentOn,omitempty"`
+	Interval     time.Duration `json:"interval,omitempty"`
 }
 
 func (e *Exception) ToProto() *pb.NotificationException {

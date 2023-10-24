@@ -111,7 +111,13 @@ The Modron service is meant to work at the organization level on GCP. In order t
     "compute.backendServices.list",
     "compute.instances.list",
     "compute.regions.list",
+    "compute.sslCertificates.list",
+    "compute.sslPolicies.list",
     "compute.subnetworks.list",
+    "compute.targetHttpsProxies.list",
+    "compute.targetHttpsProxies.list",
+    "compute.targetSslProxies.list",
+    "compute.urlMaps.list",
     "compute.zones.list",
     "container.clusters.list",
     "iam.serviceAccounts.list",
@@ -139,7 +145,13 @@ resource "google_organization_iam_custom_role" "modron_lister" {
     "compute.backendServices.list",
     "compute.instances.list",
     "compute.regions.list",
+    "compute.sslCertificates.list",
+    "compute.sslPolicies.list",
     "compute.subnetworks.list",
+    "compute.targetHttpsProxies.list",
+    "compute.targetHttpsProxies.list",
+    "compute.targetSslProxies.list",
+    "compute.urlMaps.list",
     "compute.zones.list",
     "container.clusters.list",
     "iam.serviceAccounts.list",
@@ -176,7 +188,10 @@ go test ./... --short
 
 ### Integration test
 
+To run the integration test, you'll need a self signed certificate for the notification service.
+
 ```
+openssl req -x509 -newkey rsa:4096 -keyout key.pem -nodes -out cert.pem -sha256 -days 365 -subj '/CN=modron_test' -addext "subjectAltName = DNS:modron_test"
 docker-compose up --build --exit-code-from "modron_test" --abort-on-container-exit
 ```
 
@@ -188,16 +203,23 @@ docker-compose -f docker-compose.ui.yaml up --build --exit-code-from "modron_tes
 
 ### Running locally
 
-Use the docker command to run modron locally:
+Use this docker command to spin up a local deployment via docker-compose (will rebuild on every run):
+```
+docker-compose -f docker-compose.ui.yaml up --build
+```
+In case you want to clean up all the created images, services and volumes (e.g. if you suspect a caching issue or if a service does not properly shut down):
+```
+docker-compose rm -fsv # remove all images, services and volumes if needed
+```
+
+
+Alternative: Use the docker command to run modron locally (against a dev project):
 
 ```
-cd src
-chmod 644 ~/.config/gcloud/application_default_credentials.json 
-docker build -t modron-local:latest .
-export PROJECT=modron-dev
-export ORG_SUFFIX="@example.com"
-export ORG_ID="0123456789"
-docker run -e COLLECT_AND_SCAN_INTERVAL="12h" -e DATASET_ID="modron_bq" -e RESOURCE_TABLE_ID="resources" -e OBSERVATION_TABLE_ID="observations" -e OPERATION_TABLE_ID="operations" -e GCP_PROJECT_ID="$PROJECT" -e PORT="8080" -e GOOGLE_APPLICATION_CREDENTIALS="/tmp/application_default_credentials.json" -e ORG_SUFFIX="$ORG_SUFFIX" -e ORG_ID="$ORG_ID" --mount "source=$HOME/.config/gcloud/application_default_credentials.json,target=/tmp/application_default_credentials.json,type=bind" -p 8080:8080 modron-local:latest
+chmod 644 ~/.config/gcloud/application_default_credentials.json
+docker build -f Dockerfile.db -t modron-db:latest .
+docker run -e POSTGRES_PASSWORD="docker-test-password" -e POSTGRES_USER="modron" -e POSTGRES_DB="modron" -e PG_DATA="tmp_data/" -t modron-db:latest -p 5432
+GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_credentials.json PORT="8080" GCP_PROJECT_ID=modron-dev OPERATION_TABLE_ID="operations" OBSERVATION_TABLE_ID="observations" RESOURCE_TABLE_ID="resources" RUN_AUTOMATED_SCANS="false" ORG_SUFFIX="@example.com" STORAGE="SQL" DB_MAX_CONNECTIONS="1" SQL_BACKEND_DRIVER="postgres" SQL_CONNECT_STRING="host=localhost port=5432 user=modron password=docker-test-password database=modron sslmode=disable" go run . --logtostderr
 ```
 
 ## Future developments

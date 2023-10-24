@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/nianticlabs/modron/src/engine"
@@ -20,9 +21,10 @@ import (
 func TestCheckDetectsUserManagedCertificate(t *testing.T) {
 	resources := []*pb.Resource{
 		{
-			Name:      testProjectName,
-			Parent:    "",
-			IamPolicy: &pb.IamPolicy{},
+			Name:              testProjectName,
+			Parent:            "",
+			ResourceGroupName: testProjectName,
+			IamPolicy:         &pb.IamPolicy{},
 			Type: &pb.Resource_ResourceGroup{
 				ResourceGroup: &pb.ResourceGroup{},
 			},
@@ -211,7 +213,7 @@ func TestCheckDetectsUserManagedCertificate(t *testing.T) {
 	}
 
 	// Check that the observations are correct.
-	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(want, got, protocmp.Transform(), cmpopts.SortSlices(observationsSorter)); diff != "" {
 		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
 	}
 }
@@ -219,8 +221,8 @@ func TestCheckDetectsUserManagedCertificate(t *testing.T) {
 func TestCheckDetectsUnknownCertificate(t *testing.T) {
 	resources := []*pb.Resource{
 		{
-			Name:      "project-1",
-			Parent:    "",
+			Name:      "projects/project-1",
+			Parent:    "folders/234",
 			IamPolicy: &pb.IamPolicy{},
 			Type: &pb.Resource_ResourceGroup{
 				ResourceGroup: &pb.ResourceGroup{},
@@ -228,8 +230,8 @@ func TestCheckDetectsUnknownCertificate(t *testing.T) {
 		},
 		{
 			Name:              "lb-unknown-cert-should-error",
-			Parent:            "project-1",
-			ResourceGroupName: "project-1",
+			Parent:            "projects/project-1",
+			ResourceGroupName: "projects/project-1",
 			IamPolicy:         &pb.IamPolicy{},
 			Type: &pb.Resource_LoadBalancer{
 				LoadBalancer: &pb.LoadBalancer{
@@ -319,9 +321,9 @@ func TestCheckDetectsUnknownCertificate(t *testing.T) {
 		t.Errorf("AddResources unexpected error: %v", err)
 	}
 
-	re := engine.New(storage, []model.Rule{NewLbUserManagedCertRule()})
+	re := engine.New(storage, []model.Rule{NewLbUserManagedCertRule()}, []string{})
 	reCtx := context.Background()
-	_, err := re.CheckRules(reCtx, "", []string{"project-1"})
+	_, err := re.CheckRules(reCtx, "", []string{"projects/project-1"})
 	if len(err) != 1 {
 		t.Fatalf("len(err) got %d, want %d", len(err), 1)
 	}

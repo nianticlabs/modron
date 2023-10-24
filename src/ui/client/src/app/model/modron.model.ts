@@ -1,4 +1,4 @@
 export type StatusInfo = {
-    state: number;
-    resourceGroups: string[];
-};
+    state: number
+    resourceGroups: string[]
+}

@@ -9,6 +9,8 @@ type Collector interface {
 	CollectAndStoreAllResourceGroupResources(ctx context.Context, collectId string, resourceGroupNames []string) []error
 	CollectAndStoreResources(ctx context.Context, collectId string, resourecGroupId string) []error
 	GetResourceGroup(ctx context.Context, collectId string, resourecGroupId string) (*pb.Resource, error)
+	ListResourceGroups(ctx context.Context, name string) ([]*pb.Resource, error)
+	ListResourceGroupNames(ctx context.Context) ([]string, error)
 	ListResourceGroupAdmins(ctx context.Context) (map[string]map[string]struct{}, error)
 	ListResourceGroupResources(ctx context.Context, collectId string, resourecGroup *pb.Resource) ([]*pb.Resource, []error)
 }

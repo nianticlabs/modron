@@ -19,15 +19,13 @@ const (
 	AclUpdateIntervalSecEnvVar = "ACL_UPDATE_INTERVAL_SEC"
 )
 
-var (
-	aclUpdateIntervalSec = func() int {
-		intVar, err := strconv.Atoi(os.Getenv(AclUpdateIntervalSecEnvVar))
-		if err != nil {
-			return 5 * 60
-		}
-		return intVar
-	}()
-)
+var aclUpdateIntervalSec = func() int {
+	intVar, err := strconv.Atoi(os.Getenv(AclUpdateIntervalSecEnvVar))
+	if err != nil {
+		return 5 * 60
+	}
+	return intVar
+}()
 
 type Config struct {
 	CacheTimeout time.Duration

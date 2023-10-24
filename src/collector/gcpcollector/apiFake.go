@@ -7,15 +7,18 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/api/apikeys/v2"
-	cloudasset "google.golang.org/api/cloudasset/v1p1beta1"
-	"google.golang.org/api/cloudresourcemanager/v1"
+	cloudasset "google.golang.org/api/cloudasset/v1"
+	"google.golang.org/api/cloudidentity/v1"
+	"google.golang.org/api/cloudresourcemanager/v3"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/container/v1"
 	"google.golang.org/api/iam/v1"
+	"google.golang.org/api/monitoring/v3"
 	"google.golang.org/api/spanner/v1"
 	sqladmin "google.golang.org/api/sqladmin/v1beta4"
 	"google.golang.org/api/storage/v1"
 
+	"github.com/nianticlabs/modron/src/constants"
 	"github.com/nianticlabs/modron/src/model"
 )
 
@@ -27,45 +30,42 @@ func NewFake(ctx context.Context, storage model.Storage) *GCPCollector {
 	}
 }
 
-type GCPApiFake struct {
-}
+type GCPApiFake struct{}
 
-func (api *GCPApiFake) ListApiKeys(name string) (*apikeys.V2ListKeysResponse, error) {
-	return &apikeys.V2ListKeysResponse{
-		Keys: []*apikeys.V2Key{
-			{
-				Name:         "api-key-unrestricted-0",
-				Restrictions: nil,
+func (api *GCPApiFake) ListApiKeys(ctx context.Context, name string) ([]*apikeys.V2Key, error) {
+	return []*apikeys.V2Key{
+		{
+			Name:         "api-key-unrestricted-0",
+			Restrictions: nil,
+		},
+		{
+			Name: "api-key-unrestricted-1",
+			Restrictions: &apikeys.V2Restrictions{
+				ApiTargets: nil,
 			},
-			{
-				Name: "api-key-unrestricted-1",
-				Restrictions: &apikeys.V2Restrictions{
-					ApiTargets: nil,
-				},
-			},
-			{
-				Name: "api-key-with-overbroad-scope-1",
-				Restrictions: &apikeys.V2Restrictions{
-					ApiTargets: []*apikeys.V2ApiTarget{
-						{
-							Service: "iamcredentials.googleapis.com",
-						},
-						{
-							Service: "storage_api",
-						},
-						{
-							Service: "apikeys",
-						},
+		},
+		{
+			Name: "api-key-with-overbroad-scope-1",
+			Restrictions: &apikeys.V2Restrictions{
+				ApiTargets: []*apikeys.V2ApiTarget{
+					{
+						Service: "iamcredentials.googleapis.com",
+					},
+					{
+						Service: "storage_api",
+					},
+					{
+						Service: "apikeys",
 					},
 				},
 			},
-			{
-				Name: "api-key-without-overbroad-scope",
-				Restrictions: &apikeys.V2Restrictions{
-					ApiTargets: []*apikeys.V2ApiTarget{
-						{
-							Service: "bigquerystorage.googleapis.com",
-						},
+		},
+		{
+			Name: "api-key-without-overbroad-scope",
+			Restrictions: &apikeys.V2Restrictions{
+				ApiTargets: []*apikeys.V2ApiTarget{
+					{
+						Service: "bigquerystorage.googleapis.com",
 					},
 				},
 			},
@@ -73,60 +73,96 @@ func (api *GCPApiFake) ListApiKeys(name string) (*apikeys.V2ListKeysResponse, er
 	}, nil
 }
 
-func (api *GCPApiFake) ListBuckets(name string) (*storage.Buckets, error) {
+func (api *GCPApiFake) ListBuckets(ctx context.Context, name string) ([]*storage.Bucket, error) {
 	creationTimestamp := time.Now().Format(time.RFC3339)
-	return &storage.Buckets{
-		Items: []*storage.Bucket{
-			{
-				Name:            "bucket-1",
-				Id:              "bucket-1",
-				TimeCreated:     creationTimestamp,
-				Encryption:      &storage.BucketEncryption{},
-				RetentionPolicy: &storage.BucketRetentionPolicy{},
-				IamConfiguration: &storage.BucketIamConfiguration{
-					UniformBucketLevelAccess: &storage.BucketIamConfigurationUniformBucketLevelAccess{},
-				},
+	return []*storage.Bucket{
+		{
+			Name:            "bucket-public",
+			Id:              "bucket-public",
+			TimeCreated:     creationTimestamp,
+			Encryption:      &storage.BucketEncryption{},
+			RetentionPolicy: &storage.BucketRetentionPolicy{},
+			IamConfiguration: &storage.BucketIamConfiguration{
+				UniformBucketLevelAccess: &storage.BucketIamConfigurationUniformBucketLevelAccess{},
 			},
-			{
-				Name:            "bucket-2",
-				Id:              "bucket-2",
-				TimeCreated:     creationTimestamp,
-				Encryption:      &storage.BucketEncryption{},
-				RetentionPolicy: &storage.BucketRetentionPolicy{},
-				IamConfiguration: &storage.BucketIamConfiguration{
-					UniformBucketLevelAccess: &storage.BucketIamConfigurationUniformBucketLevelAccess{},
-				},
+		},
+		{
+			Name:            "bucket-2",
+			Id:              "bucket-2",
+			TimeCreated:     creationTimestamp,
+			Encryption:      &storage.BucketEncryption{},
+			RetentionPolicy: &storage.BucketRetentionPolicy{},
+			IamConfiguration: &storage.BucketIamConfiguration{
+				UniformBucketLevelAccess: &storage.BucketIamConfigurationUniformBucketLevelAccess{},
 			},
-			{
-				Name:            "bucket-3",
-				Id:              "bucket-3",
-				TimeCreated:     creationTimestamp,
-				Encryption:      &storage.BucketEncryption{},
-				RetentionPolicy: &storage.BucketRetentionPolicy{},
-				IamConfiguration: &storage.BucketIamConfiguration{
-					UniformBucketLevelAccess: &storage.BucketIamConfigurationUniformBucketLevelAccess{},
-				},
+		},
+		{
+			Name:            "bucket-public-allusers",
+			Id:              "bucket-public-allusers",
+			TimeCreated:     creationTimestamp,
+			Encryption:      &storage.BucketEncryption{},
+			RetentionPolicy: &storage.BucketRetentionPolicy{},
+			IamConfiguration: &storage.BucketIamConfiguration{
+				UniformBucketLevelAccess: &storage.BucketIamConfigurationUniformBucketLevelAccess{},
+			},
+		},
+		{
+			Name:            "bucket-accessible-from-other-project",
+			Id:              "bucket-accessible-from-other-project",
+			TimeCreated:     creationTimestamp,
+			Encryption:      &storage.BucketEncryption{},
+			RetentionPolicy: &storage.BucketRetentionPolicy{},
+			IamConfiguration: &storage.BucketIamConfiguration{
+				UniformBucketLevelAccess: &storage.BucketIamConfigurationUniformBucketLevelAccess{},
 			},
 		},
 	}, nil
 }
 
-func (api *GCPApiFake) ListAllResourceGroups(ctx context.Context) ([]*cloudresourcemanager.Project, error) {
-	return []*cloudresourcemanager.Project{
+func (api *GCPApiFake) ListResourceGroups(ctx context.Context, name string) ([]*cloudasset.ResourceSearchResult, error) {
+	ret := []*cloudasset.ResourceSearchResult{}
+	for _, rg := range []*cloudasset.ResourceSearchResult{
 		{
-			ProjectId:      "modron-test",
-			LifecycleState: "ACTIVE",
+			Name:    "projects/modron-test",
+			Project: "projects/modron-test",
+			State:   "ACTIVE",
 		},
 		{
-			ProjectId:      "pending-deletion",
-			LifecycleState: "DELETE_REQUESTED",
+			Name:    "projects/modron-other-test",
+			Project: "projects/modron-other-test",
+			State:   "ACTIVE",
 		},
-	}, nil
+		{
+			Name:    "projects/pending-deletion",
+			Project: "projects/pending-deletion",
+			State:   "PENDING_DELETION",
+		},
+		{
+			Name:    "folders/123",
+			Project: "folders/123",
+			State:   "ACTIVE",
+		},
+		{
+			Name:    "folders/234",
+			Project: "folders/234",
+			State:   "ACTIVE",
+		},
+		{
+			Name:    "organizations/1111",
+			Project: "organizations/1111",
+			State:   "ACTIVE",
+		},
+	} {
+		if rg.Name == name {
+			ret = append(ret, rg)
+		}
+	}
+	return ret, nil
 }
 
 func (api *GCPApiFake) ListBucketsIamPolicy(bucketId string) (*storage.Policy, error) {
 	iamPolicies := map[string]*storage.Policy{
-		"bucket-1": {
+		"bucket-public": {
 			Bindings: []*storage.PolicyBindings{
 				{
 					Role: "roles/storage.objectViewer",
@@ -141,23 +177,33 @@ func (api *GCPApiFake) ListBucketsIamPolicy(bucketId string) (*storage.Policy, e
 				{
 					Role: "roles/storage.objectViewer",
 					Members: []string{
-						"account-1",
+						"serviceAccount:account-1@modron-test.iam.gserviceaccount.com",
 					},
 				},
 				{
 					Role: "roles/storage.objectViewer",
 					Members: []string{
-						"account-2",
+						"serviceAccount:account-2@modron-test.iam.gserviceaccount.com",
 					},
 				},
 			},
 		},
-		"bucket-3": {
+		"bucket-public-allusers": {
 			Bindings: []*storage.PolicyBindings{
 				{
 					Role: "roles/storage.objectViewer",
 					Members: []string{
 						"allUsers",
+					},
+				},
+			},
+		},
+		"bucket-accessible-from-other-project": {
+			Bindings: []*storage.PolicyBindings{
+				{
+					Role: "roles/storage.legacyBucketOwner",
+					Members: []string{
+						"serviceAccount:account-3@modron-other-test.iam.gserviceaccount.com",
 					},
 				},
 			},
@@ -171,6 +217,93 @@ func (api *GCPApiFake) ListBucketsIamPolicy(bucketId string) (*storage.Policy, e
 }
 
 func (api *GCPApiFake) ListProjectIamPolicy(name string) (*cloudresourcemanager.Policy, error) {
+	iamPolicies := map[string]*cloudresourcemanager.Policy{
+		"modron-test": {
+			Bindings: []*cloudresourcemanager.Binding{
+				{
+					Role: "roles/owner",
+					Members: []string{
+						"user:owner1@example.com",
+						"user:owner2@example.com",
+					},
+				},
+				{
+					Role: "roles/test2",
+					Members: []string{
+						"serviceAccount:account-2@modron-test.iam.gserviceaccount.com",
+					},
+				},
+				{
+					Role: "roles/iam.serviceAccountAdmin",
+					Members: []string{
+						"serviceAccount:account-1@modron-test.iam.gserviceaccount.com",
+					},
+				},
+				{
+					Role: "roles/dataflow.admin",
+					Members: []string{
+						"serviceAccount:account-3@modron-other-test.iam.gserviceaccount.com",
+					},
+				},
+				{
+					Role: "roles/iam.serviceAccountAdmin",
+					Members: []string{
+						"serviceAccount:account-3@modron-other-test.iam.gserviceaccount.com",
+					},
+				},
+				{
+					Role: "roles/viewer",
+					Members: []string{
+						"serviceAccount:account-2@modron-test.iam.gserviceaccount.com",
+					},
+				},
+			},
+		},
+		"modron-other-test": {
+			Bindings: []*cloudresourcemanager.Binding{
+				{
+					Role: "roles/owner",
+					Members: []string{
+						"user:owner1@example.com",
+						"user:owner2@example.com",
+					},
+				},
+				{
+					Role: "roles/test3",
+					Members: []string{
+						"serviceAccount:account-2@modron-other-test.iam.gserviceaccount.com",
+					},
+				},
+				{
+					Role: "roles/iam.serviceAccountAdmin",
+					Members: []string{
+						"serviceAccount:account-1@modron-other-test.iam.gserviceaccount.com",
+					},
+				},
+				{
+					Role: "roles/dataflow.admin",
+					Members: []string{
+						"serviceAccount:account-3@modron-test.iam.gserviceaccount.com",
+					},
+				},
+				{
+					Role: "roles/viewer",
+					Members: []string{
+						"serviceAccount:account-2@modron-test.iam.gserviceaccount.com",
+					},
+				},
+			},
+		},
+	}
+
+	if iamPolicy, ok := iamPolicies[constants.ResourceWithoutProjectsPrefix(name)]; ok {
+		return iamPolicy, nil
+	} else {
+		return nil, fmt.Errorf("invalid project id %q", name)
+	}
+}
+
+func (api *GCPApiFake) ListFoldersIamPolicy(name string) (*cloudresourcemanager.Policy, error) {
 	return &cloudresourcemanager.Policy{
 		Bindings: []*cloudresourcemanager.Binding{
 			{
@@ -183,25 +316,63 @@ func (api *GCPApiFake) ListProjectIamPolicy(name string) (*cloudresourcemanager.
 			{
 				Role: "roles/test2",
 				Members: []string{
-					"account-2",
+					"account-2@example.com",
 				},
 			},
 			{
 				Role: "roles/iam.serviceAccountAdmin",
 				Members: []string{
-					"account-1",
+					"account-1@example.com",
 				},
 			},
 			{
 				Role: "roles/dataflow.admin",
 				Members: []string{
-					"account-1",
+					"account-1@example.com",
 				},
 			},
 			{
 				Role: "roles/viewer",
 				Members: []string{
-					"account-2",
+					"account-2@example.com",
+				},
+			},
+		},
+	}, nil
+}
+
+func (api *GCPApiFake) ListOrganizationsIamPolicy(name string) (*cloudresourcemanager.Policy, error) {
+	return &cloudresourcemanager.Policy{
+		Bindings: []*cloudresourcemanager.Binding{
+			{
+				Role: "roles/owner",
+				Members: []string{
+					"user:account-1@example.com",
+					"user:account-2@example.com",
+				},
+			},
+			{
+				Role: "roles/test2",
+				Members: []string{
+					"account-2@example.com",
+				},
+			},
+			{
+				Role: "roles/iam.serviceAccountAdmin",
+				Members: []string{
+					"account-1@example.com",
+				},
+			},
+			{
+				Role: "roles/dataflow.admin",
+				Members: []string{
+					"account-1@example.com",
+				},
+			},
+			{
+				Role: "roles/viewer",
+				Members: []string{
+					"account-2@example.com",
 				},
 			},
 		},
@@ -209,48 +380,73 @@ func (api *GCPApiFake) ListProjectIamPolicy(name string) (*cloudresourcemanager.
 }
 
 func (api *GCPApiFake) SearchIamPolicy(ctx context.Context, scope string, query string) ([]*cloudasset.IamPolicySearchResult, error) {
-	return []*cloudasset.IamPolicySearchResult{
-		{
-			Policy: &cloudasset.Policy{
-				Bindings: []*cloudasset.Binding{
-					{
-						Members: []string{"owner@example.com"},
-						Role:    "roles/owner",
+	if strings.Contains(query, "//cloudresourcemanager.googleapis.com/projects/") {
+		return []*cloudasset.IamPolicySearchResult{
+			{
+				Policy: &cloudasset.Policy{
+					Bindings: []*cloudasset.Binding{
+						{
+							Members: []string{"owner@example.com"},
+							Role:    "roles/owner",
+						},
 					},
 				},
+				Resource: "//cloudresourcemanager.googleapis.com/projects/project-1",
 			},
-		},
+		}, nil
+	} else if strings.Contains(query, "//cloudresourcemanager.googleapis.com/folders/") {
+		return []*cloudasset.IamPolicySearchResult{
+			{
+				Policy: &cloudasset.Policy{
+					Bindings: []*cloudasset.Binding{
+						{
+							Members: []string{"owner@example.com"},
+							Role:    "roles/owner",
+						},
+					},
+				},
+				Resource: "//cloudresourcemanager.googleapis.com/folders/123",
+			},
+		}, nil
+	} else { // "//cloudresourcemanager.googleapis.com/organizations/"
+		return []*cloudasset.IamPolicySearchResult{
+			{
+				Policy: &cloudasset.Policy{
+					Bindings: []*cloudasset.Binding{
+						{
+							Members: []string{"owner@example.com"},
+							Role:    "roles/owner",
+						},
+					},
+				},
+				Resource: "//cloudresourcemanager.googleapis.com/organizations/11111",
+			},
+		}, nil
+	}
+}
+
+func (api *GCPApiFake) ListZones(ctx context.Context, name string) ([]*compute.Zone, error) {
+	return []*compute.Zone{
+		{Name: "zone-1"},
+		{Name: "zone-2"},
+		{Name: "zone-3"},
 	}, nil
 }
 
-func (api *GCPApiFake) ListZones(name string) (*compute.ZoneList, error) {
-	return &compute.ZoneList{
-		Items: []*compute.Zone{
-			{Name: "zone-1"},
-			{Name: "zone-2"},
-			{Name: "zone-3"},
-		},
-	}, nil
+func (api *GCPApiFake) ListClustersByZone(name string, zone string) ([]*container.Cluster, error) {
+	return []*container.Cluster{}, nil
 }
 
-func (api *GCPApiFake) ListClustersByZone(name string, zone string) (*container.ListClustersResponse, error) {
-	return &container.ListClustersResponse{
-		Clusters: []*container.Cluster{},
-	}, nil
-}
-
-func (api *GCPApiFake) ListCertificates(name string) (*compute.SslCertificateAggregatedList, error) {
+func (api *GCPApiFake) ListCertificates(ctx context.Context, name string) ([]*compute.SslCertificate, error) {
 	creationTimestamp := time.Now()
-	sslCertificatesScopedList := map[string]compute.SslCertificatesScopedList{
-		"scope-0": {
-			SslCertificates: []*compute.SslCertificate{
-				{
-					Name:              "cert-0",
-					Type:              "MANAGED",
-					CreationTimestamp: creationTimestamp.Format(time.RFC3339),
-					ExpireTime:        creationTimestamp.Add(time.Hour * 24 * 365).Format(time.RFC3339),
-					SelfLink:          "/links/cert-0",
-					Certificate: strings.ReplaceAll(`
+	sslCertificatesList := []*compute.SslCertificate{
+		{
+			Name:              "cert-0",
+			Type:              "MANAGED",
+			CreationTimestamp: creationTimestamp.Format(time.RFC3339),
+			ExpireTime:        creationTimestamp.Add(time.Hour * 24 * 365).Format(time.RFC3339),
+			SelfLink:          "/links/cert-0",
+			Certificate: strings.ReplaceAll(`
 					-----BEGIN CERTIFICATE-----
 					MIIFTTCCAzUCCQDBvVCMwjjyWjANBgkqhkiG9w0BAQUFADBVMRAwDgYDVQQLDAdV
 					bmtub3duMRAwDgYDVQQKDAdVbmtub3duMRAwDgYDVQQHDAdVbmtub3duMRAwDgYD
@@ -313,14 +509,14 @@ func (api *GCPApiFake) ListCertificates(name string) (*compute.SslCertificateAgg
 					FbGm99HuLTXv1ReyURGzjxZIAqHd6hnX5wk=
 					-----END CERTIFICATE-----
 					`, "\t", ""),
-				},
-				{
-					Name:              "cert-1",
-					Type:              "SELF_MANAGED",
-					CreationTimestamp: creationTimestamp.Format(time.RFC3339),
-					ExpireTime:        creationTimestamp.Add(time.Hour * 24 * 365).Format(time.RFC3339),
-					SelfLink:          "/links/cert-1",
-					Certificate: strings.ReplaceAll(`
+		},
+		{
+			Name:              "cert-1",
+			Type:              "SELF_MANAGED",
+			CreationTimestamp: creationTimestamp.Format(time.RFC3339),
+			ExpireTime:        creationTimestamp.Add(time.Hour * 24 * 365).Format(time.RFC3339),
+			SelfLink:          "/links/cert-1",
+			Certificate: strings.ReplaceAll(`
 					-----BEGIN CERTIFICATE-----
 					MIIFTTCCAzUCCQD9AMCeW12GEDANBgkqhkiG9w0BAQUFADBVMRAwDgYDVQQLDAdV
 					bmtub3duMRAwDgYDVQQKDAdVbmtub3duMRAwDgYDVQQHDAdVbmtub3duMRAwDgYD
@@ -383,14 +579,14 @@ func (api *GCPApiFake) ListCertificates(name string) (*compute.SslCertificateAgg
 					muOKyutYtJqW5tqke8N7Yy9oDUlqtt6gnFE=
 					-----END CERTIFICATE-----
 					`, "\t", ""),
-				},
-				{
-					Name:              "cert-2",
-					Type:              "MANAGED",
-					CreationTimestamp: creationTimestamp.Format(time.RFC3339),
-					ExpireTime:        creationTimestamp.Add(time.Hour * 24 * 365).Format(time.RFC3339),
-					SelfLink:          "/links/cert-2",
-					Certificate: strings.ReplaceAll(`
+		},
+		{
+			Name:              "cert-2",
+			Type:              "MANAGED",
+			CreationTimestamp: creationTimestamp.Format(time.RFC3339),
+			ExpireTime:        creationTimestamp.Add(time.Hour * 24 * 365).Format(time.RFC3339),
+			SelfLink:          "/links/cert-2",
+			Certificate: strings.ReplaceAll(`
 					-----BEGIN CERTIFICATE-----
 					MIIFTTCCAzUCCQCUhTr1JbteOjANBgkqhkiG9w0BAQUFADBVMRAwDgYDVQQLDAdV
 					bmtub3duMRAwDgYDVQQKDAdVbmtub3duMRAwDgYDVQQHDAdVbmtub3duMRAwDgYD
@@ -453,195 +649,237 @@ func (api *GCPApiFake) ListCertificates(name string) (*compute.SslCertificateAgg
 					y4rzKfl2JQSqXBbOdR4KUDN0uhXFqPDEyK4=
 					-----END CERTIFICATE-----
 					`, "\t", ""),
-				},
-			},
 		},
 	}
-	return &compute.SslCertificateAggregatedList{
-		Items: sslCertificatesScopedList,
+	return sslCertificatesList, nil
+}
+
+func (api *GCPApiFake) ListTargetHttpsProxies(ctx context.Context, name string) ([]*compute.TargetHttpsProxy, error) {
+	return []*compute.TargetHttpsProxy{
+		{
+			Name:            "proxy-0",
+			SslCertificates: []string{"/links/cert-0"},
+			UrlMap:          "/links/url-map-0", // TODO: Update all these links to match the value from the GCP API
+		},
+		{
+			Name:            "proxy-1",
+			SslCertificates: []string{"/links/cert-1"},
+			UrlMap:          "/links/url-map-1",
+			SslPolicy:       "https://www.googleapis.com/compute/v1/projects/modron-test/global/sslPolicies/modern-ssl-policy",
+		},
+		{
+			Name:            "proxy-2",
+			SslCertificates: []string{"/links/cert-1", "/links/cert-2"},
+			UrlMap:          "/links/url-map-2",
+			SslPolicy:       "https://www.googleapis.com/compute/v1/projects/modron-test/global/sslPolicies/modern-ssl-policy",
+		},
+		{
+			Name:            "proxy-3",
+			SslCertificates: []string{},
+			UrlMap:          "/links/url-map-3",
+		},
+		{
+			Name:            "proxy-4",
+			SslCertificates: []string{},
+			UrlMap:          "/links/url-map-4",
+		},
 	}, nil
 }
 
-func (api *GCPApiFake) ListTargetHttpsProxies(name string) (*compute.TargetHttpsProxyAggregatedList, error) {
-	targetHttpsProxiesScopedList := map[string]compute.TargetHttpsProxiesScopedList{
-		"scope-0": {
-			TargetHttpsProxies: []*compute.TargetHttpsProxy{
-				{
-					Name:            "proxy-0",
-					SslCertificates: []string{"/links/cert-0"},
-					UrlMap:          "/links/url-map-0",
-				},
-				{
-					Name:            "proxy-1",
-					SslCertificates: []string{"/links/cert-1"},
-					UrlMap:          "/links/url-map-1",
-				},
-				{
-					Name:            "proxy-2",
-					SslCertificates: []string{"/links/cert-1", "/links/cert-2"},
-					UrlMap:          "/links/url-map-2",
-				},
-				{
-					Name:            "proxy-3",
-					SslCertificates: []string{},
-					UrlMap:          "/links/url-map-3",
-				},
-			},
+func (api *GCPApiFake) ListTargetSslProxies(ctx context.Context, name string) ([]*compute.TargetSslProxy, error) {
+	return []*compute.TargetSslProxy{
+		{
+			Name:            "sslproxy-0",
+			Service:         "/links/backend-svc-1",
+			SslCertificates: []string{"/links/cert-1"},
+			SslPolicy:       "https://www.googleapis.com/compute/v1/projects/modron-test/global/sslPolicies/modern-ssl-policy",
 		},
-	}
-	return &compute.TargetHttpsProxyAggregatedList{
-		Items: targetHttpsProxiesScopedList,
 	}, nil
 }
 
-func (api *GCPApiFake) ListUrlMaps(name string) (*compute.UrlMapsAggregatedList, error) {
-	urlMapsScopedList := map[string]compute.UrlMapsScopedList{
-		"scope-0": {
-			UrlMaps: []*compute.UrlMap{
+func (api *GCPApiFake) ListSslPolicies(ctx context.Context, name string) ([]*compute.SslPolicy, error) {
+	return []*compute.SslPolicy{
+		{
+			Kind:              "compute#sslPolicy",
+			CreationTimestamp: "2021-10-04T02:19:20.925-07:00",
+			SelfLink:          "https://www.googleapis.com/compute/v1/projects/modron-test/global/sslPolicies/modern-ssl-policy",
+			Name:              "modern-ssl-policy",
+			Profile:           "MODERN",
+			MinTlsVersion:     "TLS_1_2",
+		},
+	}, nil
+}
+
+func (api *GCPApiFake) ListUrlMaps(ctx context.Context, name string) ([]*compute.UrlMap, error) {
+	return []*compute.UrlMap{
+		{
+			Name:           "url-map-0",
+			DefaultService: "/links/backend-svc-1",
+			SelfLink:       "/links/url-map-0",
+		},
+		{
+			Name:           "url-map-1",
+			DefaultService: "/links/backend-svc-2",
+			SelfLink:       "/links/url-map-1",
+		},
+		{
+			Name:           "url-map-2",
+			DefaultService: "/links/backend-svc-3",
+			SelfLink:       "/links/url-map-2",
+			PathMatchers: []*compute.PathMatcher{
 				{
-					Name:           "url-map-0",
-					DefaultService: "/links/backend-svc-1",
-					SelfLink:       "/links/url-map-0",
-				},
-				{
-					Name:           "url-map-1",
-					DefaultService: "/links/backend-svc-2",
-					SelfLink:       "/links/url-map-1",
-				},
-				{
-					Name:           "url-map-2",
+					Name:           "url-map-2-path",
 					DefaultService: "/links/backend-svc-3",
-					SelfLink:       "/links/url-map-2",
-				},
-				{
-					Name:           "url-map-3",
-					DefaultService: "/links/backend-svc-4",
-					SelfLink:       "/links/url-map-3",
-				},
-			},
-		},
-	}
-	return &compute.UrlMapsAggregatedList{
-		Items: urlMapsScopedList,
-	}, nil
-}
-
-func (api *GCPApiFake) ListBackendServices(name string) (*compute.BackendServiceAggregatedList, error) {
-	backendServicesScopedList := map[string]compute.BackendServicesScopedList{}
-	backendServicesScopedList["scope-0"] = compute.BackendServicesScopedList{
-		BackendServices: []*compute.BackendService{
-			{
-				Name:                "backend-svc-1",
-				LoadBalancingScheme: "INTERNAL",
-				SelfLink:            "/links/backend-svc-1",
-			},
-			{
-				Name:                "backend-svc-2",
-				LoadBalancingScheme: "EXTERNAL",
-				SelfLink:            "/links/backend-svc-2",
-			},
-			{
-				Name:                "backend-svc-3",
-				LoadBalancingScheme: "EXTERNAL",
-				SelfLink:            "/links/backend-svc-3",
-			},
-			{
-				Name:                "backend-svc-4",
-				LoadBalancingScheme: "INTERNAL",
-				SelfLink:            "/links/backend-svc-4",
-			},
-		},
-	}
-	return &compute.BackendServiceAggregatedList{
-		Items: backendServicesScopedList,
-	}, nil
-}
-
-func (api *GCPApiFake) ListRegions(name string) (*compute.RegionList, error) {
-	return &compute.RegionList{
-		Items: []*compute.Region{
-			{Name: "region-1"},
-			{Name: "region-2"},
-			{Name: "region-3"},
-		},
-	}, nil
-}
-
-func (api *GCPApiFake) ListSubNetworksByRegion(name string, region string) (*compute.SubnetworkList, error) {
-	if region == "region-1" {
-		return &compute.SubnetworkList{
-			Items: []*compute.Subnetwork{
-				{
-					Name:                  "subnetwork-private-access-should-not-be-reported",
-					IpCidrRange:           "IpCdrRange1",
-					Purpose:               "PRIVATE",
-					PrivateIpGoogleAccess: true,
-				},
-				{
-					Name:                  "subnetwork-no-private-access-should-be-reported",
-					IpCidrRange:           "IpCdrRange1",
-					Purpose:               "PRIVATE",
-					PrivateIpGoogleAccess: false,
-				},
-				{
-					Name:                  "psc-network-should-not-be-reported",
-					IpCidrRange:           "IpCdrRange1",
-					Purpose:               "PRIVATE_SERVICE_CONNECT",
-					PrivateIpGoogleAccess: false,
-				},
-			},
-		}, nil
-	}
-
-	return &compute.SubnetworkList{
-		Items: []*compute.Subnetwork{},
-	}, nil
-}
-
-func (api *GCPApiFake) ListServiceAccount(name string) (*iam.ListServiceAccountsResponse, error) {
-	return &iam.ListServiceAccountsResponse{
-		Accounts: []*iam.ServiceAccount{
-			{
-				Email: "account-1",
-			},
-			{
-				Email: "account-2",
-			},
-		},
-	}, nil
-}
-
-func (api *GCPApiFake) ListInstances(name string) (*compute.InstanceAggregatedList, error) {
-	instancesScopedList := map[string]compute.InstancesScopedList{}
-	instancesScopedList["scope-0"] = compute.InstancesScopedList{
-		Instances: []*compute.Instance{
-			{
-				Name: "instance-1",
-				NetworkInterfaces: []*compute.NetworkInterface{
-					{
-						NetworkIP: "192.168.0.1",
-						AccessConfigs: []*compute.AccessConfig{
-							{
-								NatIP: "240.241.242.243",
+					PathRules: []*compute.PathRule{
+						{
+							Service: "/links/backend-svc-7",
+							Paths: []string{
+								"some/where/*",
 							},
 						},
 					},
 				},
-				ServiceAccounts: []*compute.ServiceAccount{
-					{
-						Email: "account-1",
-					},
+				{
+					Name:           "another-path-0",
+					DefaultService: "/links/backend-svc-6",
 				},
 			},
 		},
-	}
-	return &compute.InstanceAggregatedList{
-		Items: instancesScopedList,
+		{
+			Name:           "url-map-3",
+			DefaultService: "/links/backend-svc-4",
+			SelfLink:       "/links/url-map-3",
+		},
+		{
+			Name:           "url-map-4",
+			DefaultService: "/links/backend-svc-5",
+			SelfLink:       "/links/url-map-4",
+		},
 	}, nil
 }
 
-func (api *GCPApiFake) ListServiceAccountKeys(name string) (*iam.ListServiceAccountKeysResponse, error) {
-	return &iam.ListServiceAccountKeysResponse{}, nil
+func (api *GCPApiFake) ListBackendServices(ctx context.Context, name string) ([]*compute.BackendService, error) {
+	return []*compute.BackendService{
+		{
+			Name:                "backend-svc-1",
+			LoadBalancingScheme: "INTERNAL",
+			SelfLink:            "/links/backend-svc-1",
+		},
+		{
+			Name:                "backend-svc-2",
+			LoadBalancingScheme: "EXTERNAL",
+			SelfLink:            "/links/backend-svc-2",
+		},
+		{
+			Name:                "backend-svc-3",
+			LoadBalancingScheme: "EXTERNAL",
+			SelfLink:            "/links/backend-svc-3",
+		},
+		{
+			Name:                "backend-svc-4",
+			LoadBalancingScheme: "INTERNAL",
+			SelfLink:            "/links/backend-svc-4",
+		},
+		{
+			Name:                "backend-svc-5",
+			LoadBalancingScheme: "EXTERNAL",
+			SelfLink:            "/links/backend-svc-5",
+		},
+		{
+			Name:                "backend-svc-6",
+			LoadBalancingScheme: "EXTERNAL",
+			SelfLink:            "/links/backend-svc-6",
+		},
+		{
+			Name:                "backend-svc-7",
+			LoadBalancingScheme: "EXTERNAL",
+			SelfLink:            "/links/backend-svc-7",
+		},
+	}, nil
+}
+
+func (api *GCPApiFake) ListRegions(ctx context.Context, name string) ([]*compute.Region, error) {
+	return []*compute.Region{
+		{Name: "region-1"},
+		{Name: "region-2"},
+		{Name: "region-3"},
+	}, nil
+}
+
+func (api *GCPApiFake) ListSubNetworksByRegion(ctx context.Context, name string, region string) ([]*compute.Subnetwork, error) {
+	if region == "region-1" {
+		return []*compute.Subnetwork{
+			{
+				Name:                  "subnetwork-private-access-should-not-be-reported",
+				IpCidrRange:           "IpCdrRange1",
+				Purpose:               "PRIVATE",
+				PrivateIpGoogleAccess: true,
+			},
+			{
+				Name:                  "subnetwork-no-private-access-should-be-reported",
+				IpCidrRange:           "IpCdrRange1",
+				Purpose:               "PRIVATE",
+				PrivateIpGoogleAccess: false,
+			},
+			{
+				Name:                  "psc-network-should-not-be-reported",
+				IpCidrRange:           "IpCdrRange1",
+				Purpose:               "PRIVATE_SERVICE_CONNECT",
+				PrivateIpGoogleAccess: false,
+			},
+		}, nil
+	}
+	return []*compute.Subnetwork{}, nil
+}
+
+func (api *GCPApiFake) ListServiceAccount(ctx context.Context, name string) ([]*iam.ServiceAccount, error) {
+	if name == "modron-other-test" {
+		return []*iam.ServiceAccount{
+			{
+				Email: "account-3@modron-other-test",
+			},
+		}, nil
+	}
+	return []*iam.ServiceAccount{
+		{
+			Email: "account-1@modron-test",
+		},
+		{
+			Email: "account-2@modron-test",
+		},
+	}, nil
+}
+
+func (api *GCPApiFake) ListInstances(ctx context.Context, name string) ([]*compute.Instance, error) {
+	return []*compute.Instance{
+		{
+			Name: "instance-1",
+			Id:   0,
+			NetworkInterfaces: []*compute.NetworkInterface{
+				{
+					NetworkIP: "192.168.0.1",
+					AccessConfigs: []*compute.AccessConfig{
+						{
+							NatIP: "240.241.242.243",
+						},
+					},
+				},
+			},
+			ServiceAccounts: []*compute.ServiceAccount{
+				{
+					Email: "account-1@modron-test",
+				},
+			},
+		},
+	}, nil
+}
+
+func (api *GCPApiFake) ListServiceAccountKeys(name string) ([]*iam.ServiceAccountKey, error) {
+	return []*iam.ServiceAccountKey{}, nil
+}
+
+func (api *GCPApiFake) ListServiceAccountKeyUsage(ctx context.Context, resourceGroup string, request *monitoring.QueryTimeSeriesRequest) *monitoring.ProjectsTimeSeriesQueryCall {
+	return &monitoring.ProjectsTimeSeriesQueryCall{}
 }
 
 func (api *GCPApiFake) ListSpannerDatabases(ctx context.Context, name string) ([]*spanner.Database, error) {
@@ -652,16 +890,97 @@ func (api *GCPApiFake) ListSpannerDatabases(ctx context.Context, name string) ([
 	}, nil
 }
 
+func (api *GCPApiFake) ListGroups(ctx context.Context) ([]*cloudidentity.Group, error) {
+	creationTime := time.Date(2021, time.April, 23, 2, 45, 23, 1023, time.UTC)
+	updateTime := time.Now()
+	return []*cloudidentity.Group{
+		{
+			Name:        "groups/group1",
+			DisplayName: "group1",
+			CreateTime:  creationTime.Format(time.RFC3339),
+			UpdateTime:  updateTime.Format(time.RFC3339),
+			Description: "The first test group",
+			GroupKey: &cloudidentity.EntityKey{
+				Id: "group1@org1",
+			},
+			Parent: "org1",
+		},
+		{
+			Name:        "groups/group2",
+			DisplayName: "group2",
+			CreateTime:  creationTime.Format(time.RFC3339),
+			UpdateTime:  updateTime.Format(time.RFC3339),
+			Description: "The second test group",
+			GroupKey: &cloudidentity.EntityKey{
+				Id: "group2@org1",
+			},
+			Parent: "org1",
+		},
+	}, nil
+}
+
+func (api *GCPApiFake) ListGroupMembers(ctx context.Context, group string) ([]*cloudidentity.Membership, error) {
+	group_id := strings.TrimPrefix(group, constants.GCPAccountGroupPrefix)
+	creationTime := time.Now()
+	groupMembers := map[string][]*cloudidentity.Membership{
+		"groups/group1": {
+			{
+				Name: "groups/group1/memberships/user1",
+				PreferredMemberKey: &cloudidentity.EntityKey{
+					Id: "user1@modron-test",
+				},
+				Roles: []*cloudidentity.MembershipRole{
+					{
+						Name: "OWNER",
+					},
+				},
+				CreateTime: creationTime.Format(time.RFC3339),
+			},
+			{
+				Name: "groups/group1/memberships/group2",
+				PreferredMemberKey: &cloudidentity.EntityKey{
+					Id: "group2@org1",
+				},
+				Roles: []*cloudidentity.MembershipRole{
+					{
+						Name: "MEMBER",
+					},
+				},
+				CreateTime: creationTime.Format(time.RFC3339),
+			},
+		},
+		"groups/group2": {
+			{
+				Name: "groups/group1/memberships/user2",
+				PreferredMemberKey: &cloudidentity.EntityKey{
+					Id: "user2@modron-other-test",
+				},
+				Roles: []*cloudidentity.MembershipRole{
+					{
+						Name: "OWNER",
+					},
+				},
+				CreateTime: creationTime.Format(time.RFC3339),
+			},
+		},
+	}
+	if members, ok := groupMembers[group_id]; ok {
+		return members, nil
+	} else {
+		return nil, fmt.Errorf("group %q doesn't exist", group)
+	}
+}
+
 func (api *GCPApiFake) ListUsersInGroup(ctx context.Context, group string) ([]string, error) {
 	groups := map[string][]string{
-		"emptyGroup": {},
-		"group1":     {"groups/group1/memberships/user1", "groups/group1/memberships/group2"},
-		"group2":     {"groups/groupd2/memberships/user2"},
+		"groups/emptyGroup": {},
+		"groups/group1":     {"groups/group1/memberships/user1", "groups/group1/memberships/group2"},
+		"groups/group2":     {"groups/groupd2/memberships/user2"},
 	}
 	if g, ok := groups[group]; ok {
 		return g, nil
 	} else {
-		return nil, fmt.Errorf("group %q doesn't exist", g)
+		return nil, fmt.Errorf("group %q doesn't exist", group)
 	}
 }
 
@@ -686,13 +1005,32 @@ func (api *GCPApiFake) ListCloudSqlDatabases(ctx context.Context, name string) (
 			},
 		},
 		{
-			Name:            "cloudsql-test-db-no-authorized-networks",
+			Name:            "cloudsql-test-db-public-and-authorized-networks",
 			InstanceType:    "CLOUD_SQL_INSTANCE",
 			ConnectionName:  "test-connection",
 			DatabaseVersion: "TEST_VERSION",
 			Settings: &sqladmin.Settings{
 				IpConfiguration: &sqladmin.IpConfiguration{
-					RequireSsl: true,
+					RequireSsl:  true,
+					Ipv4Enabled: true,
+					AuthorizedNetworks: []*sqladmin.AclEntry{
+						{
+							Value: "127.0.0.1/32",
+						},
+					},
+				},
+				StorageAutoResize: &autoResize,
+			},
+		},
+		{
+			Name:            "cloudsql-test-db-public-and-no-authorized-networks",
+			InstanceType:    "CLOUD_SQL_INSTANCE",
+			ConnectionName:  "test-connection",
+			DatabaseVersion: "TEST_VERSION",
+			Settings: &sqladmin.Settings{
+				IpConfiguration: &sqladmin.IpConfiguration{
+					RequireSsl:  true,
+					Ipv4Enabled: true,
 				},
 				StorageAutoResize: &autoResize,
 			},
@@ -711,7 +1049,7 @@ func (api *GCPApiFake) ListCloudSqlDatabases(ctx context.Context, name string) (
 						},
 					},
 				},
-				StorageAutoResize: &autoResize,
+				StorageAutoResize: nil,
 			},
 		},
 	}, nil

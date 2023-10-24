@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/nianticlabs/modron/src/common"
-	"github.com/nianticlabs/modron/src/engine"
+	"github.com/nianticlabs/modron/src/constants"
 	"github.com/nianticlabs/modron/src/model"
 	"github.com/nianticlabs/modron/src/pb"
 
@@ -58,15 +58,15 @@ func (r *LbUserManagedCertRule) Check(ctx context.Context, rsrc *pb.Resource) (o
 				Remediation: &pb.Remediation{
 					Description: fmt.Sprintf(
 						"Load balancer [%q](https://console.cloud.google.com/net-services/loadbalancing/list/loadBalancers?project=%s) has user-managed certificate issued by %q for the domain %q",
-						engine.GetGcpReadableResourceName(rsrc.Name),
-						rsrc.ResourceGroupName,
+						getGcpReadableResourceName(rsrc.Name),
+						constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 						cert.Issuer,
 						cert.DomainName,
 					),
 					Recommendation: fmt.Sprintf(
 						"Configure a platform-managed certificate for load balancer [%q](https://console.cloud.google.com/net-services/loadbalancing/list/loadBalancers?project=%s) to ensure lower management overhead, better security and prevent outages caused by certificate expiry",
-						engine.GetGcpReadableResourceName(rsrc.Name),
-						rsrc.ResourceGroupName,
+						getGcpReadableResourceName(rsrc.Name),
+						constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 					),
 				},
 			}

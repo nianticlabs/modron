@@ -15,15 +15,13 @@ const (
 	OperationUnknown
 )
 
-var (
-	statuses = []string{
-		"STARTED",
-		"CANCELLED",
-		"COMPLETED",
-		"FAILED",
-		"UNKNOWN",
-	}
-)
+var statuses = []string{
+	"STARTED",
+	"CANCELLED",
+	"COMPLETED",
+	"FAILED",
+	"UNKNOWN",
+}
 
 func (s OperationStatus) String() string {
 	if int(s) > len(statuses)-1 {
@@ -53,4 +51,5 @@ type Operation struct {
 	OpsType       string
 	StatusTime    time.Time
 	Status        OperationStatus
+	Reason        string
 }

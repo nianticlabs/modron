@@ -9,8 +9,7 @@ import (
 	"github.com/nianticlabs/modron/src/model"
 )
 
-type GcpCheckerFake struct {
-}
+type GcpCheckerFake struct{}
 
 func New() model.Checker {
 	glog.Warningf("If you see this on production, contact security%s", os.Getenv(constants.OrgSuffixEnvVar))
@@ -26,5 +25,5 @@ func (checker *GcpCheckerFake) GetValidatedUser(ctx context.Context) (string, er
 }
 
 func (checker *GcpCheckerFake) ListResourceGroupNamesOwned(ctx context.Context) (map[string]struct{}, error) {
-	return map[string]struct{}{"modron-test": {}}, nil
+	return map[string]struct{}{"projects/modron-test": {}}, nil
 }

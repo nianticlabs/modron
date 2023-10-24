@@ -1,4 +1,4 @@
-import * as pb from 'src/proto/notification_pb';
+import * as pb from "src/proto/notification_pb";
 import * as timestampPb from "google-protobuf/google/protobuf/timestamp_pb"
 
 export class NotificationException {
@@ -26,7 +26,7 @@ export class NotificationException {
   }
 
   toProto(): pb.NotificationException {
-    let proto = new pb.NotificationException()
+    const proto = new pb.NotificationException()
     proto.setSourceSystem(this.sourceSystem)
     proto.setUserEmail(this.userEmail)
     proto.setNotificationName(this.notificationName)
@@ -38,7 +38,7 @@ export class NotificationException {
   }
 
   static fromProto(proto: pb.NotificationException): NotificationException {
-    let model = new NotificationException()
+    const model = new NotificationException()
     model._uuid = proto.getUuid()
     model.sourceSystem = proto.getSourceSystem()
     model.userEmail = proto.getUserEmail()

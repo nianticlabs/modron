@@ -8,7 +8,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/nianticlabs/modron/src/common"
-	"github.com/nianticlabs/modron/src/engine"
 	"github.com/nianticlabs/modron/src/model"
 	"github.com/nianticlabs/modron/src/pb"
 )
@@ -42,7 +41,7 @@ func (r *DatabaseAuthorizedNetworksNotSetRule) Check(ctx context.Context, rsrc *
 		return []*pb.Observation{}, nil
 	}
 
-	if db.AuthorizedNetworksSettingAvailable == pb.Database_AUTHORIZED_NETWORKS_NOT_SET {
+	if db.IsPublic && db.AuthorizedNetworksSettingAvailable == pb.Database_AUTHORIZED_NETWORKS_NOT_SET {
 		ob := &pb.Observation{
 			Uid:           uuid.NewString(),
 			Timestamp:     timestamppb.Now(),
@@ -53,11 +52,11 @@ func (r *DatabaseAuthorizedNetworksNotSetRule) Check(ctx context.Context, rsrc *
 			Remediation: &pb.Remediation{
 				Description: fmt.Sprintf(
 					"Database %s is reachable from any IP on the Internet.",
-					engine.GetGcpReadableResourceName(rsrc.Name),
+					getGcpReadableResourceName(rsrc.Name),
 				),
 				Recommendation: fmt.Sprintf(
 					"Enable the authorized network setting in the database settings to restrict what networks can access %s.",
-					engine.GetGcpReadableResourceName(rsrc.Name),
+					getGcpReadableResourceName(rsrc.Name),
 				),
 			},
 		}

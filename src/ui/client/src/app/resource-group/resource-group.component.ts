@@ -1,52 +1,63 @@
-import { Component, OnInit, Input } from '@angular/core';
-import { map, Observable } from 'rxjs';
-import { ModronStore } from '../state/modron.store';
-import * as pb from 'src/proto/modron_pb';
+import { Component, Input } from "@angular/core"
+import { map, Observable } from "rxjs"
+import { ModronStore } from "../state/modron.store"
+import { MatSnackBar } from "@angular/material/snack-bar"
+import * as pb from "src/proto/modron_pb"
 
 @Component({
-  selector: 'app-resource-group',
-  templateUrl: './resource-group.component.html',
-  styleUrls: ['./resource-group.component.scss'],
+  selector: "app-resource-group",
+  templateUrl: "./resource-group.component.html",
+  styleUrls: ["./resource-group.component.scss"],
 })
-export class ResourceGroupComponent implements OnInit {
-  @Input()
-  name: string = '';
+export class ResourceGroupComponent {
+  private static readonly SNACKBAR_LINGER_DURATION_MS = 2500;
 
   @Input()
-  lastScanDate = '';
+  name = "";
 
   @Input()
-  provider = '';
+  lastScanDate = "";
 
   @Input()
-  observationCount: number = -1;
+  provider = "";
 
-  constructor(public store: ModronStore) {}
+  @Input()
+  observationCount = -1;
 
-  ngOnInit(): void {}
+  constructor(public store: ModronStore, public snackBar: MatSnackBar) { }
 
   collectAndScan(resourceGroups: string[]): void {
     this.store
       .collectAndScan$(resourceGroups)
-      .subscribe((res) => console.log(res.getCollectId()));
+      .subscribe({
+        next: () =>
+          this.snackBar.open("Scanning " + resourceGroups.join(",") + " ...", "", {
+            duration: ResourceGroupComponent.SNACKBAR_LINGER_DURATION_MS,
+          }),
+        error: () =>
+          this.snackBar.open(
+            "An unexpected error has occurred while starting the collection",
+            "",
+            { duration: ResourceGroupComponent.SNACKBAR_LINGER_DURATION_MS }
+          ),
+      })
   }
 
-  isCollectionRunning$(project: string): Observable<boolean> {
+  isScanRunning$(project: string): Observable<boolean> {
     return this.store.scanInfo$.pipe(
       map((info) => {
-        let running = false;
-        for (const [_, v] of info) {
-          if (v.state === pb.RequestStatus.ALREADY_RUNNING || v.state === pb.RequestStatus.RUNNING) {
+        for (const v of info.values()) {
+          if (v.state === pb.RequestStatus.RUNNING) {
             if (
               v.resourceGroups.includes(project) ||
               v.resourceGroups.length === 0
             ) {
-              running = true;
+              return true
             }
           }
         }
-        return running;
+        return false
       })
-    );
+    )
   }
 }

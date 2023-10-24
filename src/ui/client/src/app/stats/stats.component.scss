@@ -28,6 +28,29 @@
       padding: 5px;
     }
   }
+
+  h1 {
+    display: inline;
+  }
+
+  a {
+    text-decoration: none;
+    color: rgb(0, 0, 0);
+  }
+
+  a:visited {
+    text-decoration: none;
+  }
+
+  div a:hover::after {
+    text-decoration: none;
+    background-size: 20px 20px;
+    width: 20px;
+    height: 20px;
+    margin-right: 1em;
+    content: "\00A0\1F517";
+  }
+
   .app-stats-main-stats {
     display: flex;
     flex-direction: row;
@@ -35,7 +58,8 @@
     margin-bottom: 20px;
 
     .main-stat-bloc {
-      width: 200px;
+      min-width: 200px;
+      max-width: 250px;
       margin-top: 20px;
       padding: 20px;
       display: flex;
@@ -54,12 +78,15 @@
     }
   }
 }
+
 .bad {
   background-color: #da1e277c;
 }
+
 .good {
   background-color: #24a1477d;
 }
+
 .rule-header {
   display: flex;
   flex-direction: row;

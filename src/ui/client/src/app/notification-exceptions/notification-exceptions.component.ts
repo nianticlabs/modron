@@ -1,26 +1,24 @@
-import { Component, OnInit } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
-import { NotificationStore } from '../state/notification.store';
+import { Component } from "@angular/core"
+import { ActivatedRoute } from "@angular/router"
+import { NotificationStore } from "../state/notification.store"
 
 @Component({
-  selector: 'app-notification-exceptions',
-  templateUrl: './notification-exceptions.component.html',
-  styleUrls: ['./notification-exceptions.component.scss'],
+  selector: "app-notification-exceptions",
+  templateUrl: "./notification-exceptions.component.html",
+  styleUrls: ["./notification-exceptions.component.scss"],
 })
-export class NotificationExceptionsComponent implements OnInit {
+export class NotificationExceptionsComponent {
   displayedColumns = [
-    'userEmail',
-    'notificationName',
-    'justification',
-    'sourceSystem',
-    'validUntilTime',
-    '$actions',
+    "userEmail",
+    "notificationName",
+    "justification",
+    "sourceSystem",
+    "validUntilTime",
+    "$actions",
   ];
-  searchText: string;
+  searchText: string
 
   constructor(route: ActivatedRoute, public store: NotificationStore) {
-    this.searchText = route.snapshot.paramMap.get('notificationName') ?? '';
+    this.searchText = route.snapshot.paramMap.get("notificationName") ?? ""
   }
-
-  ngOnInit(): void {}
 }

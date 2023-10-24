@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"golang.org/x/exp/constraints"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -20,10 +19,11 @@ const (
 	ResourceKubernetesCluster   = "KubernetesCluster"
 	ResourceLoadBalancer        = "LoadBalancer"
 	ResourceNetwork             = "Network"
-	ResourceGroup               = "ResourceGroup"
+	ResourceResourceGroup       = "ResourceGroup"
 	ResourceServiceAccount      = "ServiceAccount"
 	ResourceVmInstance          = "VmInstance"
 	ResourceDatabase            = "Database"
+	ResourceGroup               = "Group"
 )
 
 // See `Ssl`
@@ -32,19 +32,6 @@ const (
 	CertificateSelfManaged = "SELF_MANAGED"
 	CertificateUnknown     = "TYPE_UNSPECIFIED"
 )
-
-var resourceTypeStringMap = map[string]int{
-	ResourceApiKey:              1,
-	ResourceBucket:              2,
-	ResourceExportedCredentials: 3,
-	ResourceKubernetesCluster:   4,
-	ResourceLoadBalancer:        5,
-	ResourceNetwork:             6,
-	ResourceGroup:               7,
-	ResourceServiceAccount:      8,
-	ResourceVmInstance:          9,
-	ResourceDatabase:            10,
-}
 
 func TypeFromResourceAsString(rsrc *pb.Resource) (ty string, err error) {
 	if rsrc == nil {
@@ -64,33 +51,19 @@ func TypeFromResourceAsString(rsrc *pb.Resource) (ty string, err error) {
 	case *pb.Resource_Network:
 		ty = ResourceNetwork
 	case *pb.Resource_ResourceGroup:
-		ty = ResourceGroup
+		ty = ResourceResourceGroup
 	case *pb.Resource_ServiceAccount:
 		ty = ResourceServiceAccount
 	case *pb.Resource_VmInstance:
 		ty = ResourceVmInstance
 	case *pb.Resource_Database:
 		ty = ResourceDatabase
+	case *pb.Resource_Group:
+		ty = ResourceGroup
 	default:
 		err = fmt.Errorf("unknown resource type %q", rsrc.Type)
 	}
 	return
-}
-
-func TypeFromResource(rsrc *pb.Resource) (int, error) {
-	if tyStr, err := TypeFromResourceAsString(rsrc); err != nil {
-		return 0, err
-	} else {
-		return resourceTypeStringMap[tyStr], nil
-	}
-}
-
-func TypeFromString(ty string) (int, error) {
-	if tyInt, ok := resourceTypeStringMap[ty]; ok {
-		return tyInt, nil
-	} else {
-		return 0, fmt.Errorf("unknown resource type string %q", ty)
-	}
 }
 
 func TypeFromSslCertificate(cert *compute.SslCertificate) (ty pb.Certificate_Type, err error) {
@@ -145,9 +118,8 @@ func CloneResource(rsrc *pb.Resource) *pb.Resource {
 func GetUUID(retry uint) string {
 	retries := retry
 	for retries > 0 {
-		UUID, err := uuid.NewUUID()
+		UUID, err := uuid.NewRandom()
 		if err == nil {
-			// we are good
 			return UUID.String()
 		}
 		retries--
@@ -156,22 +128,7 @@ func GetUUID(retry uint) string {
 	panic(fmt.Sprintf("Failed getting UUID after %d retries", retry))
 }
 
-func Min[T constraints.Ordered](args ...T) T {
-	min := args[0]
-	for _, x := range args {
-		if x < min {
-			min = x
-		}
-	}
-	return min
-}
-
-func Max[T constraints.Ordered](args ...T) T {
-	max := args[0]
-	for _, x := range args {
-		if x > max {
-			max = x
-		}
-	}
-	return max
+func init() {
+	// We use uuid a lot and without this we get too many collisions.
+	uuid.EnableRandPool()
 }

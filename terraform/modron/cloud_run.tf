@@ -26,16 +26,33 @@ resource "google_cloud_run_service" "grpc_web" {
           value = join(",", [for g in var.modron_admins : split(":", g)[1]])
         }
         env {
+          name = "DB_MAX_CONNECTIONS"
+          # Max is 100 for Cloud SQL, but we may need some connections for other purposes.
+          value = 90
+        }
+        env {
+          name  = "ENVIRONMENT"
+          value = "PRODUCTION"
+        }
+        env {
           name  = "GCP_PROJECT_ID"
           value = var.project
         }
         env {
-          name  = "DATASET_ID"
-          value = "modron_bq"
+          name  = "GLOG_logtostderr"
+          value = 1
         }
         env {
-          name  = "RESOURCE_TABLE_ID"
-          value = "resources"
+          name  = "GLOG_v"
+          value = var.env == "dev" ? 10 : 1
+        }
+        env {
+          name  = "NOTIFICATION_INTERVAL_DURATION"
+          value = "720h" // 30d
+        }
+        env {
+          name  = "NOTIFICATION_SERVICE"
+          value = "https://nagatha.example.com:443"
         }
         env {
           name  = "OBSERVATION_TABLE_ID"
@@ -46,14 +63,6 @@ resource "google_cloud_run_service" "grpc_web" {
           value = "operations"
         }
         env {
-          name  = "ENVIRONMENT"
-          value = "PRODUCTION"
-        }
-        env {
-          name  = "NOTIFICATION_SERVICE"
-          value = "nagatha.example.com:443"
-        }
-        env {
           name  = "ORG_ID"
           value = var.org_id
         }
@@ -61,13 +70,41 @@ resource "google_cloud_run_service" "grpc_web" {
           name  = "ORG_SUFFIX"
           value = var.org_suffix
         }
+        env {
+          name  = "RESOURCE_TABLE_ID"
+          value = "resources"
+        }
+        env {
+          name  = "SQL_BACKEND_DRIVER"
+          value = "postgres"
+        }
+        env {
+          name = "SQL_CONNECT_STRING"
+          value_from {
+            secret_key_ref {
+              key  = "latest"
+              name = split("/", resource.google_secret_manager_secret.sql_connect_string_config.name)[3]
+            }
+          }
+        }
+        env {
+          name  = "STORAGE"
+          value = "SQL"
+        }
       }
     }
     metadata {
       annotations = {
-        "client.knative.dev/user-image"    = "gcr.io/${var.project}/modron:${var.env}"
-        "autoscaling.knative.dev/minScale" = "1"
-        "autoscaling.knative.dev/maxScale" = "1"
+        "autoscaling.knative.dev/maxScale"        = "1"
+        "autoscaling.knative.dev/minScale"        = "1"
+        "client.knative.dev/user-image"           = "gcr.io/${var.project}/modron:${var.env}"
+        "run.googleapis.com/cloudsql-instances"   = google_sql_database_instance.instance.connection_name
+        "run.googleapis.com/cpu-throttling"       = "false"
+        "run.googleapis.com/vpc-access-connector" = google_vpc_access_connector.connector.id
+        "run.googleapis.com/vpc-access-egress"    = "private-ranges-only"
+      }
+      labels = {
+        "run.googleapis.com/startupProbeType" = "Default"
       }
     }
   }
@@ -81,6 +118,16 @@ resource "google_cloud_run_service" "grpc_web" {
   traffic {
     percent         = 100
     latest_revision = true
+  }
+  lifecycle {
+    ignore_changes = [
+      metadata[0].annotations["run.googleapis.com/operation-id"],
+      metadata[0].annotations["run.googleapis.com/client-name"],
+      metadata[0].annotations["run.googleapis.com/client-version"],
+      template[0].metadata[0].annotations["run.googleapis.com/operation-id"],
+      template[0].metadata[0].annotations["run.googleapis.com/client-name"],
+      template[0].metadata[0].annotations["run.googleapis.com/client-version"],
+    ]
   }
   depends_on = [
     google_project_service.run_service
@@ -118,9 +165,12 @@ resource "google_cloud_run_service" "ui" {
     }
     metadata {
       annotations = {
-        "client.knative.dev/user-image"    = "gcr.io/${var.project}/modron-ui:${var.env}"
-        "autoscaling.knative.dev/minScale" = "1"
         "autoscaling.knative.dev/maxScale" = "1"
+        "autoscaling.knative.dev/minScale" = "1"
+        "client.knative.dev/user-image"    = "gcr.io/${var.project}/modron-ui:${var.env}"
+      }
+      labels = {
+        "run.googleapis.com/startupProbeType" = "Default"
       }
     }
   }
@@ -134,6 +184,16 @@ resource "google_cloud_run_service" "ui" {
   traffic {
     percent         = 100
     latest_revision = true
+  }
+  lifecycle {
+    ignore_changes = [
+      metadata[0].annotations["run.googleapis.com/operation-id"],
+      metadata[0].annotations["run.googleapis.com/client-name"],
+      metadata[0].annotations["run.googleapis.com/client-version"],
+      template[0].metadata[0].annotations["run.googleapis.com/operation-id"],
+      template[0].metadata[0].annotations["run.googleapis.com/client-name"],
+      template[0].metadata[0].annotations["run.googleapis.com/client-version"],
+    ]
   }
   depends_on = [
     google_project_service.run_service

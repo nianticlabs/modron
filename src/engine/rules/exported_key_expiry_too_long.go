@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/nianticlabs/modron/src/common"
-	"github.com/nianticlabs/modron/src/engine"
+	"github.com/nianticlabs/modron/src/constants"
 	"github.com/nianticlabs/modron/src/model"
 	"github.com/nianticlabs/modron/src/pb"
 )
@@ -54,13 +54,13 @@ func (r *ExportedKeyIsTooOldRule) Check(ctx context.Context, rsrc *pb.Resource) 
 			Remediation: &pb.Remediation{
 				Description: fmt.Sprintf(
 					"Exported key [%q](https://console.cloud.google.com/apis/credentials?project=%s) is too long lived",
-					engine.GetGcpReadableResourceName(rsrc.Name),
-					rsrc.ResourceGroupName,
+					getGcpReadableResourceName(rsrc.Name),
+					constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 				),
 				Recommendation: fmt.Sprintf(
-					"Rotate the exported key [%q](https://console.cloud.google.com/apis/credentials?project=%s) every %d months.",
-					engine.GetGcpReadableResourceName(rsrc.Name),
-					rsrc.ResourceGroupName,
+					"Rotate the exported key [%q](https://console.cloud.google.com/apis/credentials?project=%s) every %d months",
+					getGcpReadableResourceName(rsrc.Name),
+					constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 					expiryMonths,
 				),
 			},

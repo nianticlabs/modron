@@ -9,7 +9,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/nianticlabs/modron/src/common"
-	"github.com/nianticlabs/modron/src/engine"
+	"github.com/nianticlabs/modron/src/constants"
 	"github.com/nianticlabs/modron/src/model"
 	"github.com/nianticlabs/modron/src/pb"
 
@@ -56,7 +56,7 @@ func NewApiKeyOverbroadScopeRule() model.Rule {
 
 // TODO: move this to the collector for the selfLink field
 func toURLKey(name string) string {
-	name = engine.GetGcpReadableResourceName(name)
+	name = getGcpReadableResourceName(name)
 	return name[strings.LastIndex(name, "/")+1:]
 }
 
@@ -77,13 +77,13 @@ func (r *ApiKeyOverbroadScopeRule) Check(ctx context.Context, rsrc *pb.Resource)
 					"API key [%q](https://console.cloud.google.com/apis/credentials/key/%s?project=%s) is unrestricted, which allows it to be used against any enabled GCP API",
 					toURLKey(rsrc.Name),
 					toURLKey(rsrc.Name),
-					rsrc.ResourceGroupName,
+					constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 				),
 				Recommendation: fmt.Sprintf(
-					"Restrict API key [%q](https://console.cloud.google.com/apis/credentials/key/%s?project=%s) strictly to the APIs it is supposed to call. For more details, see [here](https://niantic.atlassian.net/wiki/spaces/SEC/pages/1016792667/API+Keys)",
+					"Restrict API key [%q](https://console.cloud.google.com/apis/credentials/key/%s?project=%s) strictly to the APIs it is supposed to call.",
 					toURLKey(rsrc.Name),
 					toURLKey(rsrc.Name),
-					rsrc.ResourceGroupName,
+					constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 				),
 			},
 		}
@@ -105,15 +105,15 @@ func (r *ApiKeyOverbroadScopeRule) Check(ctx context.Context, rsrc *pb.Resource)
 						"API key [%q](https://console.cloud.google.com/apis/credentials/key/%s?project=%s) may have over-broad scope %q",
 						toURLKey(rsrc.Name),
 						toURLKey(rsrc.Name),
-						rsrc.ResourceGroupName,
+						constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 						scope,
 					),
 					Recommendation: fmt.Sprintf(
-						"Remove scope %q from API key [%q](https://console.cloud.google.com/apis/credentials/key/%s?project=%s) unless it is used. For more details, see [here](https://niantic.atlassian.net/wiki/spaces/SEC/pages/1016792667/API+Keys)",
+						"Remove scope %q from API key [%q](https://console.cloud.google.com/apis/credentials/key/%s?project=%s) unless it is used.",
 						scope,
 						toURLKey(rsrc.Name),
 						toURLKey(rsrc.Name),
-						rsrc.ResourceGroupName,
+						constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 					),
 				},
 			}

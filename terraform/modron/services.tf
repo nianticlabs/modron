@@ -31,6 +31,12 @@ resource "google_project_service" "iap_service" {
 resource "google_project_service" "run_service" {
   service = "run.googleapis.com"
 }
+resource "google_project_service" "secretmanager_service" {
+  service = "secretmanager.googleapis.com"
+}
+resource "google_project_service" "servicenetworking_service" {
+  service = "servicenetworking.googleapis.com"
+}
 resource "google_project_service" "serviceusage_service" {
   service = "serviceusage.googleapis.com"
 }
@@ -39,4 +45,7 @@ resource "google_project_service" "stackdriver_service" {
 }
 resource "google_project_service" "spanner_service" {
   service = "spanner.googleapis.com"
+}
+resource "google_project_service" "vpcaccess_service" {
+  service = "vpcaccess.googleapis.com"
 }

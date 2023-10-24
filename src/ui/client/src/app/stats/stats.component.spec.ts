@@ -1,20 +1,21 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { reverseSortPipe } from '../filter.pipe';
+import { ComponentFixture, TestBed } from "@angular/core/testing"
+import { ActivatedRoute } from "@angular/router"
+import { reverseSortPipe } from "../filter.pipe"
 import {
   MapByTypePipe,
   mapFlatRulesPipe,
-} from '../resource-group-details/resource-group-details.pipe';
+} from "../resource-group-details/resource-group-details.pipe"
 import {
   InvalidProjectNb,
   ObservationsPipe,
-} from '../resource-groups/resource-groups.pipe';
-import { ModronStore } from '../state/modron.store';
+} from "../resource-groups/resource-groups.pipe"
+import { ModronStore } from "../state/modron.store"
 
-import { StatsComponent } from './stats.component';
+import { StatsComponent } from "./stats.component"
 
-describe('StatsComponent', () => {
-  let component: StatsComponent;
-  let fixture: ComponentFixture<StatsComponent>;
+describe("StatsComponent", () => {
+  let component: StatsComponent
+  let fixture: ComponentFixture<StatsComponent>
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -26,15 +27,29 @@ describe('StatsComponent', () => {
         reverseSortPipe,
         MapByTypePipe,
       ],
-      providers: [ModronStore],
-    }).compileComponents();
+      providers: [
+        ModronStore,
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              paramMap: {
+                get(): string {
+                  return "mock-observation-id"
+                },
+              },
+            },
+          },
+        },
+      ],
+    }).compileComponents()
 
-    fixture = TestBed.createComponent(StatsComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
+    fixture = TestBed.createComponent(StatsComponent)
+    component = fixture.componentInstance
+    fixture.detectChanges()
+  })
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-});
+  it("should create", () => {
+    expect(component).toBeTruthy()
+  })
+})

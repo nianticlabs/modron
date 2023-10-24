@@ -8,7 +8,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/nianticlabs/modron/src/common"
-	"github.com/nianticlabs/modron/src/engine"
+	"github.com/nianticlabs/modron/src/constants"
 	"github.com/nianticlabs/modron/src/model"
 	"github.com/nianticlabs/modron/src/pb"
 )
@@ -49,15 +49,15 @@ func (r *PrivateGoogleAccessDisabledRule) Check(ctx context.Context, rsrc *pb.Re
 			Remediation: &pb.Remediation{
 				Description: fmt.Sprintf(
 					"Network [%q](https://console.cloud.google.com/networking/networks/details/%s?project=%s) has [Private Google Access](https://cloud.google.com/vpc/docs/configure-private-google-access) disabled. Private Google Access allows the workloads to access Google APIs via a private network which is safer than going over the public Internet",
-					engine.GetGcpReadableResourceName(rsrc.Name),
-					engine.GetGcpReadableResourceName(rsrc.Name),
-					rsrc.ResourceGroupName,
+					getGcpReadableResourceName(rsrc.Name),
+					getGcpReadableResourceName(rsrc.Name),
+					constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 				),
 				Recommendation: fmt.Sprintf(
 					"Enable [Private Google Access](https://cloud.google.com/vpc/docs/configure-private-google-access) for Network [%q](https://console.cloud.google.com/networking/networks/details/%s?project=%s)",
-					engine.GetGcpReadableResourceName(rsrc.Name),
-					engine.GetGcpReadableResourceName(rsrc.Name),
-					rsrc.ResourceGroupName,
+					getGcpReadableResourceName(rsrc.Name),
+					getGcpReadableResourceName(rsrc.Name),
+					constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 				),
 			},
 		}

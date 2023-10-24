@@ -68,7 +68,7 @@ func (mem *MemStorage) ListResources(ctx context.Context, filter model.StorageFi
 			return true
 		})
 	} else {
-		for _, n := range *filter.ResourceGroupNames {
+		for _, n := range filter.ResourceGroupNames {
 			res, ok := mem.resources.Load(n)
 			if !ok {
 				continue
@@ -81,9 +81,9 @@ func (mem *MemStorage) ListResources(ctx context.Context, filter model.StorageFi
 		}
 	}
 	result := flatValues(latestRes)
-	if filter.Limit != nil {
-		if len(result) > *filter.Limit {
-			return result[:*filter.Limit], nil
+	if filter.Limit > 0 {
+		if len(result) > filter.Limit {
+			return result[:filter.Limit], nil
 		}
 	}
 	return result, nil
@@ -102,7 +102,7 @@ func (mem *MemStorage) ListObservations(ctx context.Context, filter model.Storag
 			return true
 		})
 	} else {
-		for _, n := range *filter.ResourceGroupNames {
+		for _, n := range filter.ResourceGroupNames {
 			ob, ok := mem.observations.Load(n)
 			if !ok {
 				continue
@@ -116,10 +116,10 @@ func (mem *MemStorage) ListObservations(ctx context.Context, filter model.Storag
 	}
 
 	result := flatValues(latestObs)
-	if filter.Limit != nil {
-		if len(result) > *filter.Limit {
-			fmt.Println(*filter.Limit)
-			return result[:*filter.Limit], nil
+	if filter.Limit > 0 {
+		if len(result) > filter.Limit {
+			fmt.Println(filter.Limit)
+			return result[:filter.Limit], nil
 		}
 	}
 	return result, nil
@@ -133,6 +133,11 @@ func (mem *MemStorage) AddOperationLog(ctx context.Context, ops []model.Operatio
 			mem.mostRecentScanID.Store(o.ResourceGroup, o.ID)
 		}
 	}
+	return nil
+}
+
+func (mem *MemStorage) PurgeIncompleteOperations(ctx context.Context) error {
+	mem.operations = sync.Map{}
 	return nil
 }
 
@@ -160,31 +165,36 @@ func (mem *MemStorage) filterObs(obs []*pb.Observation, filter model.StorageFilt
 			continue
 		}
 		if filter.ResourceTypes != nil {
-			t, err := common.TypeFromResource(obs[i].Resource)
+			t, err := common.TypeFromResourceAsString(obs[i].Resource)
 			if err != nil {
 				return nil, err
 			}
-			if _, ok := toSet(*filter.ResourceTypes)[t]; !ok {
+			if _, ok := toSet(filter.ResourceTypes)[t]; !ok {
 				appendResource = false
 			}
 		}
 		if filter.ResourceIDs != nil {
-			if _, ok := toSet(*filter.ResourceIDs)[obs[i].Resource.Uid]; !ok {
+			if _, ok := toSet(filter.ResourceIDs)[obs[i].Resource.Uid]; !ok {
 				appendResource = false
 			}
 		}
-		if filter.ResourceNames != nil {
-			if _, ok := toSet(*filter.ResourceNames)[obs[i].Resource.Name]; !ok {
+		if filter.ResourceNames != nil && len(filter.ResourceNames) > 0 {
+			if _, ok := toSet(filter.ResourceNames)[obs[i].Resource.Name]; !ok {
 				appendResource = false
 			}
 		}
 		if filter.ParentNames != nil {
-			if _, ok := toSet(*filter.ParentNames)[obs[i].Resource.Parent]; !ok {
+			if _, ok := toSet(filter.ParentNames)[obs[i].Resource.Parent]; !ok {
 				appendResource = false
 			}
 		}
-		if filter.StartTime != nil || filter.TimeOffset != nil {
-			if filter.StartTime != nil && filter.TimeOffset != nil {
+		if filter.ResourceGroupNames != nil {
+			if _, ok := toSet(filter.ResourceGroupNames)[obs[i].Resource.ResourceGroupName]; !ok {
+				appendResource = false
+			}
+		}
+		if !filter.StartTime.IsZero() || filter.TimeOffset != 0 {
+			if !filter.StartTime.IsZero() && filter.TimeOffset != 0 {
 				timeStamp := obs[i].Timestamp.AsTime()
 				start, end := extractStartAndEndTimes(filter)
 				if !timeStamp.After(start) || !timeStamp.Before(end) {
@@ -215,31 +225,36 @@ func filterRes(resources []*pb.Resource, filter model.StorageFilter) ([]*pb.Reso
 			break
 		}
 		if filter.ResourceTypes != nil {
-			t, err := common.TypeFromResource(resources[i])
+			t, err := common.TypeFromResourceAsString(resources[i])
 			if err != nil {
 				return nil, err
 			}
-			if _, ok := toSet(*filter.ResourceTypes)[t]; !ok {
+			if _, ok := toSet(filter.ResourceTypes)[t]; !ok {
 				appendResource = false
 			}
 		}
 		if filter.ResourceIDs != nil {
-			if _, ok := toSet(*filter.ResourceIDs)[resources[i].Uid]; !ok {
+			if _, ok := toSet(filter.ResourceIDs)[resources[i].Uid]; !ok {
 				appendResource = false
 			}
 		}
 		if filter.ResourceNames != nil {
-			if _, ok := toSet(*filter.ResourceNames)[resources[i].Name]; !ok {
+			if _, ok := toSet(filter.ResourceNames)[resources[i].Name]; !ok {
 				appendResource = false
 			}
 		}
 		if filter.ParentNames != nil {
-			if _, ok := toSet(*filter.ParentNames)[resources[i].Parent]; !ok {
+			if _, ok := toSet(filter.ParentNames)[resources[i].Parent]; !ok {
 				appendResource = false
 			}
 		}
-		if filter.StartTime != nil || filter.TimeOffset != nil {
-			if filter.StartTime != nil && filter.TimeOffset != nil {
+		if filter.ResourceGroupNames != nil {
+			if _, ok := toSet(filter.ResourceGroupNames)[resources[i].ResourceGroupName]; !ok {
+				appendResource = false
+			}
+		}
+		if !filter.StartTime.IsZero() || filter.TimeOffset != 0 {
+			if !filter.StartTime.IsZero() && filter.TimeOffset != 0 {
 				timeStamp := resources[i].GetTimestamp().AsTime()
 				start, end := extractStartAndEndTimes(filter)
 				if !timeStamp.After(start) || !timeStamp.Before(end) {
@@ -257,12 +272,12 @@ func filterRes(resources []*pb.Resource, filter model.StorageFilter) ([]*pb.Reso
 }
 
 func extractStartAndEndTimes(filter model.StorageFilter) (start time.Time, end time.Time) {
-	startTimeF, offsetTimeF := filter.StartTime, filter.StartTime.Add(*filter.TimeOffset)
+	startTimeF, offsetTimeF := filter.StartTime, filter.StartTime.Add(filter.TimeOffset)
 	if startTimeF.Before(offsetTimeF) {
-		start = *startTimeF
+		start = startTimeF
 		end = offsetTimeF
 	} else {
-		end = *startTimeF
+		end = startTimeF
 		start = offsetTimeF
 	}
 	return start, end

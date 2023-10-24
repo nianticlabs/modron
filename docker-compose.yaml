@@ -1,18 +1,19 @@
 version: '3'
 
 services:
-  modron:
-    container_name: modron
-    build: src/
+  postgres_db:
+    container_name: postgres_db
+    build:
+      context: src/
+      dockerfile: Dockerfile.db
+    restart: always
     environment:
-      PORT: 8080
-      ENVIRONMENT: "E2E_GRPC_TESTING"
-      STORAGE: "MEM"
-      COLLECTOR: "FAKE"
-      ORG_ID: "0123456789"
-      ORG_SUFFIX: "@example.com"
-    ports:
-      - "8080:8080"
+      POSTGRES_USER: "modron"
+      POSTGRES_PASSWORD: "docker-test-password"
+      POSTGRES_DB: "modron"
+      PGDATA: "/tmp/"
+    tmpfs:
+      - /tmp
     networks:
       - modron
 
@@ -20,16 +21,28 @@ services:
     container_name: modron_fake
     build: src/
     environment:
-      PORT: 8081
-      ENVIRONMENT: "E2E_GRPC_TESTING"
-      STORAGE: "MEM"
       COLLECTOR: "FAKE"
+      DB_BATCH_SIZE: "1"
+      DB_MAX_CONNECTIONS: "1"
+      ENVIRONMENT: "E2E_GRPC_TESTING"
+      GLOG_v: "10"
+      NOTIFICATION_SERVICE: "modron_test:8082"
+      OBSERVATION_TABLE_ID: "observations"
+      OPERATION_TABLE_ID: "operations"
       ORG_ID: "0123456789"
       ORG_SUFFIX: "@example.com"
+      PORT: 8081
+      RESOURCE_TABLE_ID: "resources"
+      RUN_AUTOMATED_SCANS: "false"
+      SQL_BACKEND_DRIVER: "postgres"
+      SQL_CONNECT_STRING: "host=postgres_db port=5432 user=modron password=docker-test-password database=modron sslmode=disable"
+      STORAGE: "SQL"
     ports:
       - "8081:8081"
     networks:
       - modron
+    depends_on:
+      - postgres_db
 
   modron_test:
     container_name: e2e_test
@@ -39,18 +52,11 @@ services:
     environment:
       BACKEND_ADDRESS: "modron:8080"
       FAKE_BACKEND_ADDRESS: "modron_fake:8081"
-    volumes:
-      - stats:/app/stats
-      - "./secrets:/app/secrets"
+      FAKE_NOTIFICATION_SERVICE_PORT: "8082"
     networks:
       - modron
     depends_on:
-      - modron
       - modron_fake
-
-volumes:
-  stats:
-    external: false
 
 networks:
   modron:

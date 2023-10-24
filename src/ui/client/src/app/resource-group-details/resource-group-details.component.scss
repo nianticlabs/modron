@@ -1,3 +1,5 @@
+@charset "UTF-8";
+
 .inline {
   display: flex;
   flex-direction: row;
@@ -8,9 +10,14 @@
 .app-resourcegroup {
   width: 98%;
 
+  h1 {
+    display: inline;
+  }
+
   a {
     color: rgb(0, 0, 0);
   }
+
   a:link {
     text-decoration: none;
   }
@@ -19,12 +26,17 @@
     text-decoration: none;
   }
 
-  a:hover {
+  a:active {
     text-decoration: underline;
   }
 
-  a:active {
-    text-decoration: underline;
+  div.inline a:hover::after {
+    text-decoration: none;
+    background-size: 20px 20px;
+    width: 20px;
+    height: 20px;
+    margin-right: 1em;
+    content: "\00A0\1F517";
   }
 
   .app-resourcegroup-header {
@@ -84,7 +96,7 @@
     }
   }
 
-  .notify-ctn:hover > svg {
+  .notify-ctn:hover>svg {
     transform: scale(0.8);
   }
 }

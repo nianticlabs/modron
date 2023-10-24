@@ -18,3 +18,10 @@ data "google_iam_policy" "iap_web_users" {
 resource "google_iap_web_iam_policy" "users" {
   policy_data = data.google_iam_policy.iap_web_users.policy_data
 }
+
+resource "google_project_iam_member" "jump_host_ssh_accessors" {
+  project  = var.project
+  role     = "roles/iap.tunnelResourceAccessor"
+  for_each = toset(var.modron_admins)
+  member   = each.key
+}

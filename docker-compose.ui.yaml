@@ -18,15 +18,24 @@ services:
     container_name: modron_fake
     build: src/
     environment:
-      PORT: 8080
-      STORAGE: "MEM"
+      RUN_AUTOMATED_SCANS: "false"
       COLLECTOR: "FAKE"
+      DB_MAX_CONNECTIONS: "1"
+      GRPC_TRACE: "all"
+      GRPC_VERBOSITY: "DEBUG"
+      OBSERVATION_TABLE_ID: "observations"
+      OPERATION_TABLE_ID: "operations"
       ORG_ID: "0123456789"
       ORG_SUFFIX: "@example.com"
-      GRPC_VERBOSITY: "DEBUG"
-      GRPC_TRACE: "all"
+      PORT: 8080
+      RESOURCE_TABLE_ID: "resources"
+      SQL_BACKEND_DRIVER: "postgres"
+      SQL_CONNECT_STRING: "host=postgres_db port=5432 user=modron password=docker-test-password database=modron sslmode=disable"
+      STORAGE: "SQL"
     networks:
       - modron
+    depends_on:
+      - postgres_db
 
   modron_ui:
     container_name: modron_ui
@@ -47,11 +56,29 @@ services:
       - modron_proxy
     environment:
       CYPRESS_BASE_URL: "http://modron_proxy:10000"
+      ELECTRON_ENABLE_LOGGING: 1
     command: npx cypress run
     volumes:
       - ./src/ui/client/cypress:/app/cypress:ro
       - ./docker/cypress/tsconfig.json:/app/tsconfig.json
       - ./docker/cypress/cypress.config.ts:/app/cypress.config.ts
+      - ./:/app/results
+    networks:
+      - modron
+
+  postgres_db:
+    container_name: postgres_db
+    build:
+      context: src/
+      dockerfile: Dockerfile.db
+    restart: always
+    environment:
+      POSTGRES_USER: "modron"
+      POSTGRES_PASSWORD: "docker-test-password"
+      POSTGRES_DB: "modron"
+      PGDATA: "/tmp/"
+    tmpfs:
+      - /tmp
     networks:
       - modron
 

@@ -66,8 +66,17 @@ func (mem *MemStorage) DeleteException(ctx context.Context, uuid string) error {
 	return fmt.Errorf("%s not found", uuid)
 }
 
-func (mem *MemStorage) ListExceptions(ctx context.Context) ([]model.Exception, error) {
-	return mem.exceptions, nil
+func (mem *MemStorage) ListExceptions(ctx context.Context, userEmail string) ([]model.Exception, error) {
+	if userEmail == "" {
+		return mem.exceptions, nil
+	}
+	exceptions := []model.Exception{}
+	for _, e := range mem.exceptions {
+		if e.UserEmail == userEmail {
+			exceptions = append(exceptions, e)
+		}
+	}
+	return exceptions, nil
 }
 
 func (mem *MemStorage) ListNotificationsToSend(ctx context.Context) ([]model.Notification, error) {
@@ -87,6 +96,16 @@ func (mem *MemStorage) ListNotificationsToSend(ctx context.Context) ([]model.Not
 		}
 	}
 	return notifs, nil
+}
+
+func (mem *MemStorage) LastSendDate(ctx context.Context) (time.Time, error) {
+	lastSendDate := time.Time{}
+	for _, n := range mem.notifications {
+		if n.SentOn.After(lastSendDate) {
+			lastSendDate = n.SentOn
+		}
+	}
+	return lastSendDate, nil
 }
 
 func (mem *MemStorage) ListNotifications(ctx context.Context) ([]model.Notification, error) {

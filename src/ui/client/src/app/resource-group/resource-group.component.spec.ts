@@ -1,24 +1,25 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ModronStore } from '../state/modron.store';
+import { ComponentFixture, TestBed } from "@angular/core/testing"
+import { ModronStore } from "../state/modron.store"
+import { ResourceGroupComponent } from "./resource-group.component"
+import { MatSnackBarModule } from "@angular/material/snack-bar"
 
-import { ResourceGroupComponent } from './resource-group.component';
-
-describe('ResourceGroupComponent', () => {
-  let component: ResourceGroupComponent;
-  let fixture: ComponentFixture<ResourceGroupComponent>;
+describe("ResourceGroupComponent", () => {
+  let component: ResourceGroupComponent
+  let fixture: ComponentFixture<ResourceGroupComponent>
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       declarations: [ResourceGroupComponent],
+      imports: [MatSnackBarModule],
       providers: [ModronStore],
-    }).compileComponents();
+    }).compileComponents()
 
-    fixture = TestBed.createComponent(ResourceGroupComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
+    fixture = TestBed.createComponent(ResourceGroupComponent)
+    component = fixture.componentInstance
+    fixture.detectChanges()
+  })
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-});
+  it("should create", () => {
+    expect(component).toBeTruthy()
+  })
+})

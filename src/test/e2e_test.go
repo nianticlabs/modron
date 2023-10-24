@@ -2,11 +2,13 @@ package e2e
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"net"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -29,8 +32,9 @@ func init() {
 }
 
 const (
-	serverAddrEnvVar     = "BACKEND_ADDRESS"
-	fakeServerAddrEnvVar = "FAKE_BACKEND_ADDRESS"
+	notificationPortEnvVar = "FAKE_NOTIFICATION_SERVICE_PORT"
+	serverAddrEnvVar       = "BACKEND_ADDRESS"
+	fakeServerAddrEnvVar   = "FAKE_BACKEND_ADDRESS"
 )
 
 var (
@@ -38,13 +42,36 @@ var (
 	fakeServerAddr = os.Getenv(fakeServerAddrEnvVar)
 )
 
-var (
-	projectListFile string
-)
+var projectListFile string
+
+func runFakeNotificationService(t *testing.T, port int64) {
+	t.Helper()
+	lis, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	if err != nil {
+		t.Fatalf("cannot listen on port %d: %v", port, err)
+	}
+	srvCert, err := tls.LoadX509KeyPair("cert.pem", "key.pem")
+	if err != nil {
+		panic(fmt.Sprintln("load certificate: ", err))
+	}
+	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{srvCert},
+		ClientAuth:   tls.NoClientCert,
+	})))
+	svc := New()
+	pb.RegisterNotificationServiceServer(grpcServer, svc)
+	fmt.Printf("starting fake notification service on port %d\n", port)
+	if err := grpcServer.Serve(lis); err != nil {
+		t.Fatalf("grpcServer serve: %v", err)
+	}
+}
 
 func testModronE2e(t *testing.T, addr string, resourceGroupNames []string, want map[string][]*structpb.Value) {
 	flag.Parse()
 	ctx := context.Background()
+	go func() {
+		runFakeNotificationService(t, extractNotificationServicePortFromEnvironment(t))
+	}()
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
@@ -72,6 +99,9 @@ func testModronE2e(t *testing.T, addr string, resourceGroupNames []string, want 
 		for _, rules := range el.RulesObservations {
 			allObs = append(allObs, rules.Observations...)
 		}
+	}
+	if len(allObs) < 1 {
+		t.Fatalf("no observations returned")
 	}
 	got := map[string][]*structpb.Value{}
 	for _, ob := range allObs {
@@ -111,6 +141,9 @@ func testModronE2e(t *testing.T, addr string, resourceGroupNames []string, want 
 				return false
 			},
 			cmp.Transformer("timestamppb", func(t protocmp.Message) time.Time {
+				if t["seconds"] == nil {
+					return time.Time{}
+				}
 				return time.Unix(t["seconds"].(int64), 0).UTC()
 			}),
 		),
@@ -119,9 +152,10 @@ func testModronE2e(t *testing.T, addr string, resourceGroupNames []string, want 
 	gotManualObs, err := client.CreateObservation(ctx, &pb.CreateObservationRequest{Observation: manualObservation})
 	if err != nil {
 		t.Errorf("CreateObservation(ctx, %+v) unexpected error %v", manualObservation, err)
-	}
-	if diff := cmp.Diff(manualObservation, gotManualObs, cmpOpts); diff != "" {
-		t.Errorf("CreateObservation(ctx, %+v) diff (-want, +got): %v", manualObservation, diff)
+	} else {
+		if diff := cmp.Diff(manualObservation, gotManualObs, cmpOpts); diff != "" {
+			t.Errorf("CreateObservation(ctx, %+v) diff (-want, +got): %v", manualObservation, diff)
+		}
 	}
 
 	manualObservation.Resource = &pb.Resource{Name: "non existing"}
@@ -185,7 +219,7 @@ func TestModronE2e(t *testing.T) {
 	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "/app/secrets/key.json")
 	defer os.Unsetenv("GOOGLE_APPLICATION_CREDENTIALS")
 
-	content, err := ioutil.ReadFile(projectListFile)
+	content, err := os.ReadFile(projectListFile)
 	if err != nil {
 		t.Errorf("error with projectID list file: %v", err)
 	}
@@ -198,18 +232,30 @@ func TestModronE2e(t *testing.T) {
 
 func TestModronE2eFake(t *testing.T) {
 	want := map[string][]*structpb.Value{
-		"account-1":                        {structpb.NewStringValue(""), structpb.NewStringValue("")},
-		"bucket-1":                         {structpb.NewStringValue("PRIVATE")},
-		"bucket-3":                         {structpb.NewStringValue("PRIVATE")},
-		"[api-key-unrestricted-0]":         {structpb.NewStringValue("restricted")},
-		"[api-key-unrestricted-1]":         {structpb.NewStringValue("restricted")},
-		"[api-key-with-overbroad-scope-1]": {structpb.NewStringValue(""), structpb.NewStringValue("")},
-		"0[backend-svc-2]":                 {structpb.NewNumberValue(float64(pb.Certificate_MANAGED))},
-		"0[backend-svc-3]":                 {structpb.NewNumberValue(float64(pb.Certificate_MANAGED))},
-		"[0][subnetwork-no-private-access-should-be-reported]": {structpb.NewStringValue("enabled")},
-		"cloudsql-report-not-enforcing-tls":                    {structpb.NewBoolValue(true)},
-		"cloudsql-test-db-no-authorized-networks":              {structpb.NewStringValue("AUTHORIZED_NETWORKS_SET")},
-		"0[instance-1]": {structpb.NewStringValue("empty")},
+		"account-1":                                          {structpb.NewStringValue(""), structpb.NewStringValue("")},
+		"bucket-public":                                      {structpb.NewStringValue("PRIVATE")},
+		"bucket-public-allusers":                             {structpb.NewStringValue("PRIVATE")},
+		"bucket-accessible-from-other-project":               {structpb.NewStringValue("")},
+		"api-key-unrestricted-0[]":                           {structpb.NewStringValue("restricted")},
+		"api-key-unrestricted-1[]":                           {structpb.NewStringValue("restricted")},
+		"api-key-with-overbroad-scope-1[]":                   {structpb.NewStringValue(""), structpb.NewStringValue("")},
+		"backend-svc-2[0]":                                   {structpb.NewNumberValue(float64(pb.Certificate_MANAGED))},
+		"backend-svc-3[0]":                                   {structpb.NewNumberValue(float64(pb.Certificate_MANAGED))},
+		"backend-svc-5[0]":                                   {structpb.NewStringValue("TLS 1.2")},
+		"subnetwork-no-private-access-should-be-reported[0]": {structpb.NewStringValue("enabled")},
+		"cloudsql-report-not-enforcing-tls":                  {structpb.NewBoolValue(true)},
+		"cloudsql-test-db-public-and-no-authorized-networks": {structpb.NewStringValue("AUTHORIZED_NETWORKS_SET")},
+		"instance-1[0]":                                      {structpb.NewStringValue("empty")},
+		"projects/modron-test":                               {structpb.NewStringValue(""), structpb.NewStringValue("")},
 	}
-	testModronE2e(t, fakeServerAddr, []string{"modron-test"}, want)
+	testModronE2e(t, fakeServerAddr, []string{"projects/modron-test"}, want)
+}
+
+func extractNotificationServicePortFromEnvironment(t *testing.T) int64 {
+	t.Helper()
+	p, err := strconv.ParseInt(os.Getenv(notificationPortEnvVar), 10, 64)
+	if err != nil {
+		t.Fatalf("parse %s as int: %v", os.Getenv(notificationPortEnvVar), err)
+	}
+	return p
 }

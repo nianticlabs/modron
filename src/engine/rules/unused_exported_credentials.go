@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/nianticlabs/modron/src/common"
-	"github.com/nianticlabs/modron/src/engine"
+	"github.com/nianticlabs/modron/src/constants"
 	"github.com/nianticlabs/modron/src/model"
 	"github.com/nianticlabs/modron/src/pb"
 )
@@ -20,9 +20,7 @@ const (
 	oldestUsageVerificationMonths = 3
 )
 
-var (
-	oldestUsage = time.Now().Add(time.Duration(-oldestUsageVerificationMonths) * time.Hour * 24 * 30)
-)
+var oldestUsage = time.Now().Add(time.Duration(-oldestUsageVerificationMonths) * time.Hour * 24 * 30)
 
 type UnusedExportedCredentialsRule struct {
 	info model.RuleInfo
@@ -46,7 +44,10 @@ func NewUnusedExportedCredentialsRule() model.Rule {
 func (r *UnusedExportedCredentialsRule) Check(ctx context.Context, rsrc *pb.Resource) ([]*pb.Observation, []error) {
 	ec := rsrc.GetExportedCredentials()
 	obs := []*pb.Observation{}
-
+	if ec.LastUsage == nil {
+		// If there is no last usage value, we don't report anything.
+		return []*pb.Observation{}, []error{}
+	}
 	if ec.LastUsage.AsTime().Before(oldestUsage) {
 		ob := &pb.Observation{
 			Uid:           uuid.NewString(),
@@ -58,14 +59,14 @@ func (r *UnusedExportedCredentialsRule) Check(ctx context.Context, rsrc *pb.Reso
 			Remediation: &pb.Remediation{
 				Description: fmt.Sprintf(
 					"Exported key [%q](https://console.cloud.google.com/apis/credentials?project=%s) has not been used in the last %d months",
-					engine.GetGcpReadableResourceName(rsrc.Name),
-					rsrc.ResourceGroupName,
+					getGcpReadableResourceName(rsrc.Name),
+					constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 					oldestUsageVerificationMonths,
 				),
 				Recommendation: fmt.Sprintf(
 					"Consider deleting the exported key [%q](https://console.cloud.google.com/apis/credentials?project=%s), which is no longer in use",
-					engine.GetGcpReadableResourceName(rsrc.Name),
-					rsrc.ResourceGroupName,
+					getGcpReadableResourceName(rsrc.Name),
+					constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 				),
 			},
 		}

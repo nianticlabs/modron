@@ -4,16 +4,17 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/nianticlabs/modron/src/constants"
+	"github.com/nianticlabs/modron/src/model"
+	"github.com/nianticlabs/modron/src/pb"
 
 	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"github.com/nianticlabs/modron/src/common"
-	"github.com/nianticlabs/modron/src/constants"
-	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
 )
 
 type GCPCollector struct {
@@ -23,12 +24,12 @@ type GCPCollector struct {
 }
 
 const (
-	maxGoroutines = 1000
+	maxGoroutines = 50
 )
 
 var (
 	sysGcpProjectRegex   = regexp.MustCompile("^sys-[0-9]+")
-	validGcpProjectRegex = regexp.MustCompile("^[a-z][-a-z0-9]{4,28}[a-z0-9]{1}$")
+	validGcpProjectRegex = regexp.MustCompile("^projects/[a-z][-a-z0-9]{4,28}[a-z0-9]{1}$")
 
 	orgId     string
 	orgSuffix string
@@ -37,7 +38,7 @@ var (
 func New(ctx context.Context, storage model.Storage) (model.Collector, error) {
 	api, err := NewGCPApiReal(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("container.NewService error: %v", err)
+		return nil, fmt.Errorf("container.NewService: %w", err)
 	}
 	if orgIdEnv := os.Getenv(constants.OrgIdEnvVar); orgIdEnv == "" {
 		return nil, fmt.Errorf("environment variable %q is not set", constants.OrgIdEnvVar)
@@ -55,13 +56,14 @@ func New(ctx context.Context, storage model.Storage) (model.Collector, error) {
 	}, nil
 }
 
-func filterValidGcpProjectId(resourceGroupNames []string) []string {
+func filterValidResourceGroupNames(resourceGroupNames []string) []string {
 	filteredNames := []string{}
 	for _, name := range resourceGroupNames {
 		if sysGcpProjectRegex.MatchString(name) {
 			continue
 		}
-		if !validGcpProjectRegex.MatchString(name) {
+		if !(strings.HasPrefix(name, constants.GCPFolderIdPrefix) || strings.HasPrefix(name, constants.GCPOrgIdPrefix)) &&
+			!validGcpProjectRegex.MatchString(name) {
 			continue
 		}
 		filteredNames = append(filteredNames, name)
@@ -70,7 +72,7 @@ func filterValidGcpProjectId(resourceGroupNames []string) []string {
 }
 
 func (collector *GCPCollector) CollectAndStoreAllResourceGroupResources(ctx context.Context, collectId string, resourceGroupNames []string) []error {
-	resourceGroupNames = filterValidGcpProjectId(resourceGroupNames)
+	resourceGroupNames = filterValidResourceGroupNames(resourceGroupNames)
 	errors := make([][]error, len(resourceGroupNames))
 	guard := make(chan struct{}, maxGoroutines)
 	wg := sync.WaitGroup{}
@@ -84,54 +86,53 @@ func (collector *GCPCollector) CollectAndStoreAllResourceGroupResources(ctx cont
 		}(i, rgName)
 	}
 	wg.Wait()
-	error := []error{}
+	errs := []error{}
 	for i, projectError := range errors {
 		if len(projectError) != 0 {
 			for _, e := range projectError {
-				error = append(error, fmt.Errorf("ProjectId-%v %s error: %v", i, resourceGroupNames[i], e))
+				errs = append(errs, fmt.Errorf("project %s: %v", resourceGroupNames[i], e))
 			}
 		}
 	}
-	return error
+	return errs
 }
 
 func (collector *GCPCollector) CollectAndStoreResources(ctx context.Context, collectId string, resourceGroupID string) []error {
-	collector.logCollectionStatus(ctx, collectId, resourceGroupID, model.OperationStarted)
+	collector.logCollectionStatus(ctx, collectId, resourceGroupID, model.OperationStarted, "")
 	var resourceGroupCall CollectorResourceGroupCall = collector.GetResourceGroup
 	resourceGroup, err := resourceGroupCall.ExponentialBackoffRun(ctx, collectId, resourceGroupID)
 	if err != nil {
-		collector.logCollectionStatus(ctx, collectId, resourceGroupID, model.OperationFailed)
-		return []error{fmt.Errorf("GetResourceGroup error: %v", err)}
+		collector.logCollectionStatus(ctx, collectId, resourceGroupID, model.OperationFailed, err.Error())
+		return []error{fmt.Errorf("GetResourceGroup: %w", err)}
 	}
 	resources, errors := collector.ListResourceGroupResources(ctx, collectId, resourceGroup)
-	if len(errors) > 0 {
-		collector.logCollectionStatus(ctx, collectId, resourceGroupID, model.OperationFailed)
-		return errors
-	}
 	if _, err = collector.storage.BatchCreateResources(ctx, append(resources, resourceGroup)); err != nil {
 		errors = append(errors, err)
 	}
-	collector.logCollectionStatus(ctx, collectId, resourceGroupID, model.OperationCompleted)
+	glog.V(5).Infof("%s found %+v resources", resourceGroup.Name, len(resources))
 	if err := collector.storage.FlushOpsLog(ctx); err != nil {
 		glog.Warningf("flush ops log: %v", err)
 	}
+	collector.logCollectionStatus(ctx, collectId, resourceGroupID, model.OperationCompleted, "")
 	return errors
 }
 
-// TODO: Use `SelfLink` instead of this
+// TODO: Make sure this is meaningful outside of projects
 func formatResourceName(name string, id interface{}) string {
 	if name == id {
 		return name
 	}
-	return fmt.Sprintf("%v[%s]", id, name)
-}
+	switch id.(type) {
+	case []string, []uint64, []uint, []int64, []int:
+		return fmt.Sprintf("%s%v", name, id)
+	default:
+		return fmt.Sprintf("%s[%v]", name, id)
+	}
 
-func (collector *GCPCollector) getNewUid() string {
-	return common.GetUUID(3)
 }
 
 func (collector *GCPCollector) ListResourceGroupResources(ctx context.Context, collectId string, resourceGroup *pb.Resource) ([]*pb.Resource, []error) {
-	collectors := []CollectorCall{
+	projectCollectors := []CollectorCall{
 		collector.ListApiKeys,
 		collector.ListBuckets,
 		collector.ListCloudSqlDatabases,
@@ -142,13 +143,27 @@ func (collector *GCPCollector) ListResourceGroupResources(ctx context.Context, c
 		collector.ListSpannerDatabases,
 		collector.ListVmInstances,
 	}
-
-	res := []*pb.Resource{}
+	organizationCollectors := []CollectorCall{
+		collector.ListGroups,
+	}
+	var collectors []CollectorCall
 	errors := []error{}
+	switch {
+	case strings.HasPrefix(resourceGroup.Name, constants.GCPFolderIdPrefix):
+		collectors = []CollectorCall{}
+	case strings.HasPrefix(resourceGroup.Name, constants.GCPOrgIdPrefix):
+		collectors = organizationCollectors
+	case strings.HasPrefix(resourceGroup.Name, constants.GCPProjectsNamePrefix):
+		collectors = projectCollectors
+	default:
+		errors = append(errors, fmt.Errorf("no collectors for %q", resourceGroup.Name))
+		return nil, errors
+	}
+	res := []*pb.Resource{}
 	for i, collector := range collectors {
 		collectedResources, err := collector.ExponentialBackoffRun(ctx, resourceGroup)
 		if err != nil {
-			errors = append(errors, fmt.Errorf("collector.%v error: %v", i, err))
+			errors = append(errors, fmt.Errorf("collector.%v: %v", i, err))
 		} else {
 			for _, r := range collectedResources {
 				r.CollectionUid = collectId
@@ -160,14 +175,16 @@ func (collector *GCPCollector) ListResourceGroupResources(ctx context.Context, c
 	return res, errors
 }
 
-func (collector *GCPCollector) logCollectionStatus(ctx context.Context, collectId, resourceGroupName string, status model.OperationStatus) {
+func (collector *GCPCollector) logCollectionStatus(ctx context.Context, collectId, resourceGroupName string, status model.OperationStatus, reason string) {
 	if err := collector.storage.AddOperationLog(ctx,
 		[]model.Operation{{
 			ID:            collectId,
 			ResourceGroup: resourceGroupName,
 			OpsType:       "collection",
 			StatusTime:    time.Now(),
-			Status:        status}}); err != nil {
+			Status:        status,
+			Reason:        reason,
+		}}); err != nil {
 		glog.Warningf("add operation log: %v", err)
 	}
 }

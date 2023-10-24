@@ -1,6 +1,6 @@
-ARG GOVERSION=1.19
+ARG GOVERSION=1.21
 
-FROM node:16.16-alpine AS ui_builder
+FROM node:18.17.1-alpine AS ui_builder
 WORKDIR /app
 COPY ./client/ .
 RUN npm install
@@ -16,7 +16,6 @@ RUN CGO_ENABLED=0 go build -v -o modron-ui-server
 
 FROM alpine:latest as ca-certificates_builder
 RUN apk add --no-cache ca-certificates
-RUN update-ca-certificates
 
 FROM scratch
 WORKDIR /app

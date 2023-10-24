@@ -12,6 +12,7 @@ import (
 	"github.com/nianticlabs/modron/nagatha/src/pb"
 	"github.com/nianticlabs/modron/nagatha/src/sendgridsender"
 
+	"cloud.google.com/go/pubsub"
 	"github.com/golang/glog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -24,9 +25,9 @@ const (
 	exceptionTableIDEnvVar    = "EXCEPTION_TABLE_ID"
 	gcpProjectIDEnvVar        = "GCP_PROJECT_ID"
 	notificationTableIDEnvVar = "NOTIFICATION_TABLE_ID"
-	portEnvVar                = "PORT"
 	sendGridAPIKeyEnvVar      = "SENDGRID_API_KEY" //#nosec G101
 	testRecipientEnvVar       = "TEST_NOTIFICATION_RECIPIENT"
+	triggerSubEnvVar          = "NOTIFY_TRIGGER_SUBSCRIPTION"
 	emailSubject              = "🚨 Niantic Action Items 🚨"
 )
 
@@ -36,8 +37,8 @@ var (
 	notificationTableID = os.Getenv(notificationTableIDEnvVar)
 	projectID           = os.Getenv(gcpProjectIDEnvVar)
 	sendgridApiKey      = os.Getenv(sendGridAPIKeyEnvVar)
+	triggerSubscription = os.Getenv(triggerSubEnvVar)
 
-	port       int32
 	oneDay     = time.Duration(time.Hour * 24)
 	ninetyDays = time.Duration(time.Hour * 24 * 90)
 )
@@ -79,7 +80,7 @@ func (nag *nagathaService) CreateNotification(ctx context.Context, req *pb.Creat
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "existing notifications: %v", err)
 	}
-	exceptions, err := nag.storage.ListExceptions(ctx)
+	exceptions, err := nag.storage.ListExceptions(ctx, "")
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "list exceptions: %v", err)
 	}
@@ -128,6 +129,9 @@ func (nag *nagathaService) CreateException(ctx context.Context, req *pb.CreateEx
 	maxValidityTime := time.Now().Add(ninetyDays)
 	if req.Exception.ValidUntilTime.AsTime().After(maxValidityTime) {
 		return nil, status.Errorf(codes.InvalidArgument, "validity cannot be set beyond %s", maxValidityTime.Format(time.RFC3339))
+	}
+	if req.Exception.CreatedOnTime == nil {
+		req.Exception.CreatedOnTime = timestamppb.Now()
 	}
 	exp, err := nag.storage.CreateException(ctx, model.ExceptionFromProto(req.Exception))
 	if err != nil {
@@ -186,7 +190,7 @@ func (nag *nagathaService) DeleteException(ctx context.Context, req *pb.DeleteEx
 }
 
 func (nag *nagathaService) ListExceptions(ctx context.Context, req *pb.ListExceptionsRequest) (*pb.ListExceptionsResponse, error) {
-	expList, err := nag.storage.ListExceptions(ctx)
+	expList, err := nag.storage.ListExceptions(ctx, req.UserEmail)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "list: %v", err)
 	}
@@ -219,7 +223,7 @@ func (nag *nagathaService) NotifyUser(ctx context.Context, req *pb.NotifyUserReq
 }
 
 func (nag *nagathaService) NotifyAll(ctx context.Context, req *pb.NotifyAllRequest) (*pb.NotifyAllResponse, error) {
-	exceptions, err := nag.storage.ListExceptions(ctx)
+	exceptions, err := nag.storage.ListExceptions(ctx, "")
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "list exceptions: %v", err)
 	}
@@ -271,4 +275,23 @@ func (nag *nagathaService) NotifyAll(ctx context.Context, req *pb.NotifyAllReque
 	glog.Infof("sent %d notifications", notificationsSent)
 	// TODO(lds): Add a list of notification errors to the response.
 	return &pb.NotifyAllResponse{HasCompleted: true}, nil
+}
+
+func (nag *nagathaService) NotificationTriggerListener(ctx context.Context) error {
+	ps, err := pubsub.NewClient(ctx, projectID)
+	if err != nil {
+		return fmt.Errorf("trigger pubsub: %v", err)
+	}
+	t := ps.Subscription(triggerSubscription)
+	if ok, err := t.Exists(ctx); err != nil {
+		return fmt.Errorf("check subscription exist: %v", err)
+	} else if !ok {
+		return fmt.Errorf("%s doesn't exist", triggerSubscription)
+	}
+
+	return t.Receive(ctx, func(ctx context.Context, m *pubsub.Message) {
+		if _, err := nag.NotifyAll(ctx, &pb.NotifyAllRequest{}); err != nil {
+			glog.Errorf("notify all: %v", err)
+		}
+	})
 }

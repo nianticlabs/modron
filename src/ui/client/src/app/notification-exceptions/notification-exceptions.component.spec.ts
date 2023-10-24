@@ -1,12 +1,12 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute } from '@angular/router';
-import { AuthenticationStore } from '../state/authentication.store';
-import { NotificationStore } from '../state/notification.store';
+import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { ActivatedRoute } from "@angular/router";
+import { AuthenticationStore } from "../state/authentication.store";
+import { NotificationStore } from "../state/notification.store";
 
-import { NotificationExceptionsComponent } from './notification-exceptions.component';
-import { NotificationExceptionsFilterPipe } from './notification-exceptions.pipe';
+import { NotificationExceptionsComponent } from "./notification-exceptions.component";
+import { NotificationExceptionsFilterPipe } from "./notification-exceptions.pipe";
 
-describe('NotificationExceptionsComponent', () => {
+describe("NotificationExceptionsComponent", () => {
   let component: NotificationExceptionsComponent;
   let fixture: ComponentFixture<NotificationExceptionsComponent>;
 
@@ -25,7 +25,7 @@ describe('NotificationExceptionsComponent', () => {
             snapshot: {
               paramMap: {
                 get(): string {
-                  return 'mock-notification-name';
+                  return "mock-notification-name";
                 },
               },
             },
@@ -39,7 +39,7 @@ describe('NotificationExceptionsComponent', () => {
     fixture.detectChanges();
   });
 
-  it('should create', () => {
+  it("should create", () => {
     expect(component).toBeTruthy();
   });
 });

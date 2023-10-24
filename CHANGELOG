@@ -1,5 +1,19 @@
 # Changelog
 
+## 2023-10-24
+
+* Moved to go 1.21
+* Add jump host to access to SQL database
+* Beef up the SQL server not to slow down scans
+* New detections
+* Nagatha backend now reached with JSON and not binary protocol.
+
+## 2023-05-05
+
+* Moved to go 1.20
+* Moved to Postgresql as a backend
+* Fixed the scheduled scan runs that didn't work.
+
 ## 2022-11-18
 
 * Moved to go 1.19

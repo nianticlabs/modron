@@ -6,10 +6,12 @@ import (
 	"time"
 
 	"github.com/nianticlabs/modron/nagatha/src/memstorage"
+	"github.com/nianticlabs/modron/nagatha/src/model"
 	"github.com/nianticlabs/modron/nagatha/src/pb"
 	"github.com/nianticlabs/modron/nagatha/src/sendgridsender"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -27,9 +29,10 @@ func TestExceptionCrudService(t *testing.T) {
 	storage := memstorage.New()
 	fes := &fakeEmailSender{}
 	nag := newServerForTesting(storage, fes)
+	creationTime := timestamppb.Now()
 
 	want := &pb.Exception{
-		CreatedOnTime:    timestamppb.New(time.Time{}),
+		CreatedOnTime:    creationTime,
 		ValidUntilTime:   timestamppb.New(time.Time{}),
 		Justification:    "test-justification",
 		NotificationName: "test-notification",
@@ -67,7 +70,7 @@ func TestExceptionCrudService(t *testing.T) {
 	}
 
 	want.NotificationName = "test-notification-updated"
-	want.CreatedOnTime = timestamppb.New(time.Time{})
+	want.CreatedOnTime = creationTime
 	gotAfterUpdate, err := nag.GetException(ctx, getReq)
 	if err != nil {
 		t.Fatalf("GetException(ctx, %+v) error: %v", getReq, err)
@@ -226,6 +229,15 @@ func TestNotificationCreationAndSend(t *testing.T) {
 	storage := memstorage.New()
 	fes := &fakeEmailSender{}
 	nag := newServerForTesting(storage, fes)
+
+	if _, err := storage.CreateNotification(ctx, model.Notification{
+		Uuid:         uuid.NewString(),
+		SourceSystem: "test",
+		Name:         "preexisting-notification",
+		SentOn:       time.Now().Add(-time.Hour * 24),
+	}); err != nil {
+		t.Fatalf("CreateNotification: %v", err)
+	}
 
 	req := &pb.CreateNotificationRequest{
 		Notification: &pb.Notification{

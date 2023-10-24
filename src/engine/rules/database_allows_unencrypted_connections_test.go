@@ -1,10 +1,10 @@
 package rules
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/nianticlabs/modron/src/model"
 	"github.com/nianticlabs/modron/src/pb"
@@ -15,9 +15,10 @@ import (
 func TestCheckDetectsDatabaseAllowsUnencryptedConnections(t *testing.T) {
 	resources := []*pb.Resource{
 		{
-			Name:      testProjectName,
-			Parent:    "",
-			IamPolicy: &pb.IamPolicy{},
+			Name:              testProjectName,
+			Parent:            "",
+			ResourceGroupName: testProjectName,
+			IamPolicy:         &pb.IamPolicy{},
 			Type: &pb.Resource_ResourceGroup{
 				ResourceGroup: &pb.ResourceGroup{},
 			},
@@ -52,7 +53,10 @@ func TestCheckDetectsDatabaseAllowsUnencryptedConnections(t *testing.T) {
 
 	want := []*pb.Observation{
 		{
-			Name:          "database-no-force-tls",
+			Name: DatabaseAllowsUnencryptedConnections,
+			Resource: &pb.Resource{
+				Name: "database-no-force-tls",
+			},
 			ObservedValue: structpb.NewBoolValue(false),
 			ExpectedValue: structpb.NewBoolValue(true),
 		},
@@ -61,9 +65,7 @@ func TestCheckDetectsDatabaseAllowsUnencryptedConnections(t *testing.T) {
 	got := TestRuleRun(t, resources, []model.Rule{NewDatabaseAllowsUnencryptedConnectionsRule()})
 
 	// Check that the observations are correct.
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer)); diff != "" {
-		fmt.Println(want)
-		fmt.Println(got)
+	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
 		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
 	}
 }

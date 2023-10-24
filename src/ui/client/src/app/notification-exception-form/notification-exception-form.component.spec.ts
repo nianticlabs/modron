@@ -1,29 +1,17 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { NotificationExceptionFormComponent } from './notification-exception-form.component';
-import { HttpClient } from '@angular/common/http';
-import {
-  HttpClientTestingModule,
-  HttpTestingController,
-} from '@angular/common/http/testing';
-import { AuthenticationStore } from '../state/authentication.store';
-import { NotificationStore } from '../state/notification.store';
-import { Validators } from '@angular/forms';
-import { NotificationService } from '../notification.service';
-import { NotificationException } from '../model/notification.model';
-import {
-  MatDialogModule,
-  MatDialogRef,
-  MAT_DIALOG_DATA,
-} from '@angular/material/dialog';
+import { ComponentFixture, TestBed } from "@angular/core/testing"
+import { NotificationExceptionFormComponent } from "./notification-exception-form.component"
+import { HttpClientTestingModule, } from "@angular/common/http/testing"
+import { AuthenticationStore } from "../state/authentication.store"
+import { NotificationStore } from "../state/notification.store"
+import { Validators } from "@angular/forms"
+import { NotificationService } from "../notification.service"
+import { NotificationException } from "../model/notification.model"
+import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from "@angular/material/dialog"
 
-describe('NotificationExceptionFormComponent', () => {
-  let component: NotificationExceptionFormComponent;
-  let fixture: ComponentFixture<NotificationExceptionFormComponent>;
-
-  let httpMock: HttpTestingController;
-  let httpClient: HttpClient;
-
-  let service: NotificationService;
+describe("NotificationExceptionFormComponent", () => {
+  let component: NotificationExceptionFormComponent
+  let fixture: ComponentFixture<NotificationExceptionFormComponent>
+  let service: NotificationService
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -35,7 +23,7 @@ describe('NotificationExceptionFormComponent', () => {
           useValue: {
             user: {
               isSignedIn: true,
-              email: 'foo@bar.com',
+              email: "foo@bar.com",
             },
           },
         },
@@ -43,120 +31,116 @@ describe('NotificationExceptionFormComponent', () => {
         {
           provide: MatDialogRef,
           useValue: {
-            close: () => {},
+            close: () => { return },
           },
         },
         {
           provide: MAT_DIALOG_DATA,
-          useValue: {
-            notificationName: 'mock-notification-name',
-          },
+          useValue: "mock-notification-name",
         },
       ],
-    }).compileComponents();
+    }).compileComponents()
 
-    httpMock = TestBed.inject(HttpTestingController);
-    httpClient = TestBed.inject(HttpClient);
+    service = TestBed.inject(NotificationService)
+    fixture = TestBed.createComponent(NotificationExceptionFormComponent)
+    component = fixture.componentInstance
+    fixture.detectChanges()
+  })
 
-    service = TestBed.inject(NotificationService);
-    fixture = TestBed.createComponent(NotificationExceptionFormComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
+  it("should create", () => {
+    expect(component).toBeTruthy()
+  })
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
+  it("empty form is not valid", () => {
+    expect(component.formGroup.valid).toBeFalsy()
+  })
 
-  it('empty form is not valid', () => {
-    expect(component.formGroup.valid).toBeFalse();
-  });
-
-  it('invalid form cannot be submitted', async () => {
-    expect(component.formGroup.valid).toBeFalse();
-    spyOn(component, 'onSubmit');
+  it("invalid form cannot be submitted", async () => {
+    expect(component.formGroup.valid).toBeFalsy()
+    spyOn(component, "onSubmit")
 
     fixture.debugElement.nativeElement
       .querySelector("button[type='submit']")
-      .click();
+      .click()
+    // deepcode ignore PromiseNotCaughtGeneral: This is a test file.
     fixture.whenStable().then(() => {
-      expect(component.onSubmit).toHaveBeenCalledTimes(0);
-    });
-  });
+      expect(component.onSubmit).toHaveBeenCalledTimes(0)
+    })
+  })
 
-  it('grpc proto contains all submitted form data', () => {
-    const validUntilTime = new Date();
-    validUntilTime.setHours(validUntilTime.getHours() + 24);
+  it("grpc proto contains all submitted form data", () => {
+    const validUntilTime = new Date()
+    validUntilTime.setHours(validUntilTime.getHours() + 24)
 
-    component.justificationFormControl.setValue('trust me');
-    component.validUntilTimeFormControl.setValue(validUntilTime);
-    expect(component.formGroup.valid).toBeTrue();
+    component.justificationFormControl.setValue("trust me")
+    component.validUntilTimeFormControl.setValue(validUntilTime)
+    expect(component.formGroup.valid).toBeTruthy()
 
-    const spy = spyOn(service, 'createException$').and.callThrough();
-    component.onSubmit();
+    const spy = spyOn(service, "createException$").and.callThrough()
+    component.onSubmit()
 
-    let expected = new NotificationException();
-    expected.sourceSystem = 'modron';
-    expected.userEmail = 'foo@bar.com';
-    expected.notificationName = 'mock-notification-name';
-    expected.justification = 'trust me';
-    expected.validUntilTime = validUntilTime;
-    expect(spy).toHaveBeenCalledWith(expected.toProto());
-  });
+    const expected = new NotificationException()
+    expected.sourceSystem = "modron"
+    expected.userEmail = "foo@bar.com"
+    expected.notificationName = "mock-notification-name"
+    expected.justification = "trust me"
+    expected.validUntilTime = validUntilTime
+    expect(spy).toHaveBeenCalledWith(expected.toProto())
+  })
 
-  it('source system is disabled', () => {
-    expect(component.sourceSystemFormControl.disabled).toBeTrue();
-  });
+  it("source system is disabled", () => {
+    expect(component.sourceSystemFormControl.disabled).toBeTruthy()
+  })
 
-  it('email is disabled', () => {
-    expect(component.emailFormControl.disabled).toBeTrue();
-  });
+  it("email is disabled", () => {
+    expect(component.emailFormControl.disabled).toBeTruthy()
+  })
 
-  it('notification name is disabled', () => {
-    expect(component.notificationNameFormControl.disabled).toBeTrue();
-  });
+  it("notification name is disabled", () => {
+    expect(component.notificationNameFormControl.disabled).toBeTruthy()
+  })
 
-  it('source system value is correct', () => {
-    expect(component.sourceSystemFormControl.value).toBe('modron');
-  });
+  it("source system value is correct", () => {
+    expect(component.sourceSystemFormControl.value).toBe("modron")
+  })
 
-  it('email value is correct', () => {
-    expect(component.emailFormControl.value).toBe('foo@bar.com');
-  });
+  it("email value is correct", () => {
+    expect(component.emailFormControl.value).toBe("foo@bar.com")
+  })
 
-  it('source system is required', () => {
+  it("source system is required", () => {
     expect(
       component.sourceSystemFormControl.hasValidator(Validators.required)
-    ).toBeTrue();
-  });
+    ).toBeTruthy()
+  })
 
-  it('name is required', () => {
+  it("name is required", () => {
     expect(
       component.notificationNameFormControl.hasValidator(Validators.required)
-    ).toBeTrue();
-  });
+    ).toBeTruthy()
+  })
 
-  it('email is required', () => {
+  it("email is required", () => {
     expect(
       component.emailFormControl.hasValidator(Validators.required)
-    ).toBeTrue();
-  });
+    ).toBeTruthy()
+  })
 
-  it('email is validated', () => {
+  it("email is validated", () => {
     expect(
       component.emailFormControl.hasValidator(Validators.email)
-    ).toBeTrue();
-  });
+    ).toBeTruthy()
+  })
 
-  it('justification is required', () => {
+  it("justification is required", () => {
     expect(
       component.justificationFormControl.hasValidator(Validators.required)
-    ).toBeTrue();
-  });
+    ).toBeTruthy()
+  })
 
-  it('expiration date is required', () => {
+  it("expiration date is required", () => {
     expect(
       component.validUntilTimeFormControl.hasValidator(Validators.required)
-    ).toBeTrue();
-  });
-});
+    ).toBeTruthy()
+  })
+})

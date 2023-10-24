@@ -3,31 +3,29 @@ import {
   OnInit,
   Input,
   ChangeDetectionStrategy,
-} from '@angular/core';
+} from "@angular/core"
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
-  selector: 'app-histogram-horizontal',
-  templateUrl: './histogram-horizontal.component.html',
-  styleUrls: ['./histogram-horizontal.component.scss'],
+  selector: "app-histogram-horizontal",
+  templateUrl: "./histogram-horizontal.component.html",
+  styleUrls: ["./histogram-horizontal.component.scss"],
 })
 export class HistogramHorizontalComponent implements OnInit {
   @Input() data: Map<string, number> = new Map<string, number>();
 
-  constructor() {}
-
-  max: number = 1;
+  max = 1;
 
   ngOnInit(): void {
-    this.max = Math.max(...this.data.values());
+    this.max = Math.max(...this.data.values())
   }
 
   getWidth(key: string): string {
-    let value = this.data.get(key) as number;
-    return (value / this.max) * 100 + '%';
+    const value = this.data.get(key) as number
+    return (value / this.max) * 100 + "%"
   }
 
   parseKey(key: string): string {
-    return key.replace(/,/g, '');
+    return key.replace(/,/g, "")
   }
 }

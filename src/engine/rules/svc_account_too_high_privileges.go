@@ -8,6 +8,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/nianticlabs/modron/src/common"
+	"github.com/nianticlabs/modron/src/constants"
 	"github.com/nianticlabs/modron/src/engine"
 	"github.com/nianticlabs/modron/src/model"
 	"github.com/nianticlabs/modron/src/pb"
@@ -17,6 +18,8 @@ import (
 )
 
 const TooHighPrivilegesRuleName = "SERVICE_ACCOUNT_TOO_HIGH_PRIVILEGES"
+
+// Too Long
 
 var dangerousRoles = []string{
 	"editor",
@@ -61,10 +64,7 @@ func (r *TooHighPrivilegesRule) Check(ctx context.Context, rsrc *pb.Resource) (o
 
 	if policy != nil {
 		for _, perm := range policy.Permissions {
-			newRoles, err := engine.GetAccountRoles(perm, rsrc.Name)
-			if err != nil {
-				return nil, []error{err}
-			}
+			newRoles := getAccountRoles(perm, rsrc.Name)
 			roles = append(roles, newRoles...)
 		}
 	}
@@ -86,16 +86,16 @@ func (r *TooHighPrivilegesRule) Check(ctx context.Context, rsrc *pb.Resource) (o
 					Description: fmt.Sprintf(
 						"Service account [%q](https://console.cloud.google.com/iam-admin/serviceaccounts?project=%s) has over-broad role %q",
 						rsrc.Name,
-						rsrcGroup.Name,
+						constants.ResourceWithoutProjectsPrefix(rsrcGroup.Name),
 						role,
 					),
 					Recommendation: fmt.Sprintf(
 						"Replace the role %q for service account [%q](https://console.cloud.google.com/iam-admin/serviceaccounts?project=%s) "+
 							"with a predefined or custom role that grants it the **smallest set of permissions** needed to operate. "+
-							"This role **can not** be any of the following: `%v` *Hint: The Security insights column can help you reduce the amount of permissions*",
+							"This role **cannot** be any of the following: `%v` *Hint: The Security insights column can help you reduce the amount of permissions*",
 						role,
 						rsrc.Name,
-						rsrcGroup.Name,
+						constants.ResourceWithoutProjectsPrefix(rsrcGroup.Name),
 						dangerousRoles,
 					),
 				},

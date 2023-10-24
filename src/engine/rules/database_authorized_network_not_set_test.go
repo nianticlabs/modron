@@ -1,10 +1,10 @@
 package rules
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/nianticlabs/modron/src/model"
 	"github.com/nianticlabs/modron/src/pb"
@@ -15,15 +15,16 @@ import (
 func TestCheckDetectsDatabaseAuthorizedNetworksNotSet(t *testing.T) {
 	resources := []*pb.Resource{
 		{
-			Name:      testProjectName,
-			Parent:    "",
-			IamPolicy: &pb.IamPolicy{},
+			Name:              testProjectName,
+			Parent:            "",
+			ResourceGroupName: testProjectName,
+			IamPolicy:         &pb.IamPolicy{},
 			Type: &pb.Resource_ResourceGroup{
 				ResourceGroup: &pb.ResourceGroup{},
 			},
 		},
 		{
-			Name:              "database-no-authorized-networks",
+			Name:              "database-public-and-no-authorized-networks",
 			Parent:            testProjectName,
 			ResourceGroupName: testProjectName,
 			IamPolicy:         &pb.IamPolicy{},
@@ -32,6 +33,21 @@ func TestCheckDetectsDatabaseAuthorizedNetworksNotSet(t *testing.T) {
 					Type:                               "cloudsql",
 					Version:                            "123",
 					AuthorizedNetworksSettingAvailable: pb.Database_AUTHORIZED_NETWORKS_NOT_SET,
+					IsPublic:                           true,
+				},
+			},
+		},
+		{
+			Name:              "database-private-no-authorized-networks",
+			Parent:            testProjectName,
+			ResourceGroupName: testProjectName,
+			IamPolicy:         &pb.IamPolicy{},
+			Type: &pb.Resource_Database{
+				Database: &pb.Database{
+					Type:                               "cloudsql",
+					Version:                            "123",
+					AuthorizedNetworksSettingAvailable: pb.Database_AUTHORIZED_NETWORKS_NOT_SET,
+					IsPublic:                           false,
 				},
 			},
 		},
@@ -52,7 +68,10 @@ func TestCheckDetectsDatabaseAuthorizedNetworksNotSet(t *testing.T) {
 
 	want := []*pb.Observation{
 		{
-			Name:          "database-no-authorized-networks",
+			Name: DatabaseAuthorizedNetworksNotSet,
+			Resource: &pb.Resource{
+				Name: "database-public-and-no-authorized-networks",
+			},
 			ObservedValue: structpb.NewStringValue("AUTHORIZED_NETWORKS_NOT_SET"),
 			ExpectedValue: structpb.NewStringValue("AUTHORIZED_NETWORKS_SET"),
 		},
@@ -61,9 +80,7 @@ func TestCheckDetectsDatabaseAuthorizedNetworksNotSet(t *testing.T) {
 	got := TestRuleRun(t, resources, []model.Rule{NewDatabaseAuthorizedNetworksNotSetRule()})
 
 	// Check that the observations are correct.
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer)); diff != "" {
-		fmt.Println(want)
-		fmt.Println(got)
+	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
 		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/exp/slices"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/nianticlabs/modron/src/model"
@@ -13,15 +13,16 @@ import (
 )
 
 func TestExportedKeyTooOld(t *testing.T) {
-	now := time.Now()
+	now := time.Now().UTC()
 	yesterday := now.Add(time.Hour * -24)
 	tomorrow := now.Add(time.Hour * 24)
 	oneYearAgo := now.Add(-time.Hour * 24 * 365)
 	resources := []*pb.Resource{
 		{
-			Name:      testProjectName,
-			Parent:    "",
-			IamPolicy: &pb.IamPolicy{},
+			Name:              testProjectName,
+			Parent:            "",
+			ResourceGroupName: testProjectName,
+			IamPolicy:         &pb.IamPolicy{},
 			Type: &pb.Resource_ResourceGroup{
 				ResourceGroup: &pb.ResourceGroup{},
 			},
@@ -57,17 +58,16 @@ func TestExportedKeyTooOld(t *testing.T) {
 	// Expected values are ordered lexicographically.
 	want := []*pb.Observation{
 		{
-			Name:          "outdated-exported-key",
+			Name: ExportedKeyIsTooOld,
+			Resource: &pb.Resource{
+				Name: "outdated-exported-key",
+			},
 			ExpectedValue: structpb.NewStringValue("later creation date"),
 			ObservedValue: structpb.NewStringValue(oneYearAgo.Format("2006-01-02 15:04:05 +0000 UTC")),
 		},
 	}
-	// Sort observations lexicographically by resource name.
-	slices.SortStableFunc(got, func(lhs, rhs *pb.Observation) bool {
-		return lhs.Resource.Name < rhs.Resource.Name
-	})
 
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer)); diff != "" {
+	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
 		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
 	}
 }

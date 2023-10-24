@@ -12,9 +12,9 @@ svg:focus {
   height: 100vh;
 
   header {
+    align-items: center;
     display: flex;
     flex-direction: row;
-    align-items: center;
     justify-content: space-between;
     padding: 15px 30px;
 
@@ -63,24 +63,19 @@ svg:focus {
     nav {
       display: flex;
       flex-direction: column;
-      height: 100%;
-      width: 50px;
-      padding: 0 30px;
       gap: 40px;
+      height: 100%;
       margin: 10px;
+      padding: 0 30px;
+      width: 50px;
     }
 
-    .nav-btn {
-      cursor: pointer;
-      height: 35px;
-      padding: 5px 0;
-    }
-
-    .nav-btn > mat-icon {
-      transform: scale(4);
-      display: flex;
+    .nav-btn>mat-icon {
       align-items: center;
+      display: flex;
+      height: 55px;
       justify-content: center;
+      font-size: 4em;
     }
 
     .app {

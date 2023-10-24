@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/exp/slices"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/nianticlabs/modron/src/model"
@@ -14,22 +14,23 @@ import (
 )
 
 func TestUnusedExportedKey(t *testing.T) {
-	now := time.Now()
+	now := time.Now().UTC()
 	yesterday := now.Add(time.Hour * -24)
 	oneYearAgo := now.Add(-time.Hour * 24 * 365)
 	threeMonthsAndOneDay := now.Add(-time.Hour * 24 * 91)
 	oneYearAhead := now.Add(time.Hour * 24 * 365)
 	resources := []*pb.Resource{
 		{
-			Name:      testProjectName,
-			Parent:    "",
-			IamPolicy: &pb.IamPolicy{},
+			Name:              testProjectName,
+			Parent:            "",
+			ResourceGroupName: testProjectName,
+			IamPolicy:         &pb.IamPolicy{},
 			Type: &pb.Resource_ResourceGroup{
 				ResourceGroup: &pb.ResourceGroup{},
 			},
 		},
 		{
-			Name:              "not-used-in-a-year",
+			Name:              "not-used-in-a-long-time",
 			Parent:            testProjectName,
 			ResourceGroupName: testProjectName,
 			IamPolicy:         &pb.IamPolicy{},
@@ -61,17 +62,16 @@ func TestUnusedExportedKey(t *testing.T) {
 	// Expected values are ordered lexicographically.
 	want := []*pb.Observation{
 		{
-			Name:          "not-used-in-a-year",
+			Name: UnusedExportedCredentials,
+			Resource: &pb.Resource{
+				Name: "not-used-in-a-long-time",
+			},
 			ExpectedValue: structpb.NewStringValue(fmt.Sprintf("%s <", oldestUsage.Format(time.RFC3339))),
 			ObservedValue: structpb.NewStringValue(threeMonthsAndOneDay.Format(time.RFC3339)),
 		},
 	}
-	// Sort observations lexicographically by resource name.
-	slices.SortStableFunc(got, func(lhs, rhs *pb.Observation) bool {
-		return lhs.Resource.Name < rhs.Resource.Name
-	})
 
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer)); diff != "" {
+	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
 		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
 	}
 }

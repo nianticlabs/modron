@@ -12,7 +12,11 @@ import (
 	"github.com/nianticlabs/modron/src/storage/memstorage"
 )
 
-const testProjectName = "project-0"
+const testProjectName = "projects/project-0"
+
+var observationsSorter = func(lhs, rhs *pb.Observation) bool {
+	return lhs.Resource.Name < rhs.Resource.Name
+}
 
 func TestRuleRun(t *testing.T, resources []*pb.Resource, rules []model.Rule) []*pb.Observation {
 	t.Helper()
@@ -25,7 +29,7 @@ func TestRuleRun(t *testing.T, resources []*pb.Resource, rules []model.Rule) []*
 
 	allGroups := groupsFromResources(resources)
 
-	obs, err := engine.New(storage, rules).CheckRules(ctx, "", allGroups)
+	obs, err := engine.New(storage, rules, []string{}).CheckRules(ctx, "unit-test-scan", allGroups)
 	if err != nil {
 		t.Fatalf("CheckRules unexpected error: %v", err)
 	}
@@ -54,6 +58,12 @@ func observationComparer(o1, o2 *pb.Observation) bool {
 		return false
 	}
 	if fmt.Sprintf("%T", o1.ObservedValue) != fmt.Sprintf("%T", o2.ObservedValue) {
+		return false
+	}
+	if o1.Name != o2.Name {
+		return false
+	}
+	if o1.Resource.Name != o2.Resource.Name {
 		return false
 	}
 	switch o1.ExpectedValue.Kind.(type) {

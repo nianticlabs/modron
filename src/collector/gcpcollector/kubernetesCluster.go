@@ -1,8 +1,10 @@
 package gcpcollector
 
 import (
-	"golang.org/x/net/context"
+	"github.com/nianticlabs/modron/src/common"
 	"github.com/nianticlabs/modron/src/pb"
+
+	"golang.org/x/net/context"
 )
 
 func (collector *GCPCollector) ListKubernetesClusters(ctx context.Context, resourceGroup *pb.Resource) ([]*pb.Resource, error) {
@@ -11,7 +13,7 @@ func (collector *GCPCollector) ListKubernetesClusters(ctx context.Context, resou
 	if err != nil {
 		return nil, err
 	}
-	for _, cluster := range clusters.Clusters {
+	for _, cluster := range clusters {
 		nodeVersion := ""
 		for _, nodePool := range cluster.NodePools {
 			nodeVersion = nodePool.Version
@@ -28,12 +30,13 @@ func (collector *GCPCollector) ListKubernetesClusters(ctx context.Context, resou
 		}
 
 		kubernetesClusters = append(kubernetesClusters, &pb.Resource{
-			Uid:               collector.getNewUid(),
+			Uid:               common.GetUUID(3),
 			ResourceGroupName: resourceGroup.Name,
-			Name:              formatResourceName(cluster.Name, cluster.Id),
+			Name:              cluster.Name,
 			Parent:            resourceGroup.Name,
 			Type: &pb.Resource_KubernetesCluster{
 				KubernetesCluster: &pb.KubernetesCluster{
+					Location:                 cluster.Location,
 					PrivateCluster:           privateCluster,
 					MasterAuthorizedNetworks: masterAuthorizedNetworks,
 					MasterVersion:            cluster.CurrentMasterVersion,

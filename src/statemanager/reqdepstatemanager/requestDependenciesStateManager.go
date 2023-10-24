@@ -36,7 +36,10 @@ func (manager *RequestStateManager) GetCollectState(collectId string) pb.Request
 		status == pb.RequestStatus_UNKNOWN {
 		return status
 	}
-	nbRunning := 0
+	if status == pb.RequestStatus_ALREADY_RUNNING {
+		manager.collectIds.Store(collectId, pb.RequestStatus_DONE)
+		status = pb.RequestStatus_DONE
+	}
 	if mapDep, ok := manager.collectIdsDependencies[collectId]; ok {
 		for dep := range mapDep {
 			state := manager.GetCollectState(dep)
@@ -44,16 +47,9 @@ func (manager *RequestStateManager) GetCollectState(collectId string) pb.Request
 				state == pb.RequestStatus_CANCELLED {
 				manager.collectIds.Store(collectId, pb.RequestStatus_CANCELLED)
 			} else if state == pb.RequestStatus_RUNNING {
-				nbRunning += 1
+				return pb.RequestStatus_RUNNING
 			}
 		}
-	}
-	if nbRunning != 0 {
-		return pb.RequestStatus_RUNNING
-	}
-	if status == pb.RequestStatus_ALREADY_RUNNING {
-		manager.collectIds.Store(collectId, pb.RequestStatus_DONE)
-		status = pb.RequestStatus_DONE
 	}
 	return status
 }
@@ -67,7 +63,10 @@ func (manager *RequestStateManager) GetScanState(scanId string) pb.RequestStatus
 		status == pb.RequestStatus_UNKNOWN {
 		return status
 	}
-	nbRunning := 0
+	if status == pb.RequestStatus_ALREADY_RUNNING {
+		manager.scanIds.Store(scanId, pb.RequestStatus_DONE)
+		status = pb.RequestStatus_DONE
+	}
 	if mapDep, ok := manager.scanIdsDependencies[scanId]; ok {
 		for dep := range mapDep {
 			state := manager.GetScanState(dep)
@@ -75,16 +74,9 @@ func (manager *RequestStateManager) GetScanState(scanId string) pb.RequestStatus
 				state == pb.RequestStatus_CANCELLED {
 				manager.scanIds.Store(scanId, pb.RequestStatus_CANCELLED)
 			} else if state == pb.RequestStatus_RUNNING {
-				nbRunning += 1
+				return pb.RequestStatus_RUNNING
 			}
 		}
-	}
-	if nbRunning != 0 {
-		return pb.RequestStatus_RUNNING
-	}
-	if status == pb.RequestStatus_ALREADY_RUNNING {
-		manager.scanIds.Store(scanId, pb.RequestStatus_DONE)
-		status = pb.RequestStatus_DONE
 	}
 	return status
 }
@@ -104,7 +96,7 @@ func (manager *RequestStateManager) AddScan(scanId string, resourceGroupNames []
 			manager.scanIdsDependencies[scanId][scan] = struct{}{}
 		}
 	}
-	if len(filteredRG) == 0 {
+	if len(filteredRG) < 1 {
 		manager.scanIds.Store(scanId, pb.RequestStatus_ALREADY_RUNNING)
 	}
 	return filteredRG
@@ -134,7 +126,7 @@ func (manager *RequestStateManager) AddCollect(collectId string, resourceGroupNa
 			manager.collectIdsDependencies[collectId][collect] = struct{}{}
 		}
 	}
-	if len(filteredRG) == 0 {
+	if len(filteredRG) < 1 {
 		manager.collectIds.Store(collectId, pb.RequestStatus_ALREADY_RUNNING)
 	}
 	return filteredRG

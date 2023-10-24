@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/nianticlabs/modron/src/model"
 	"github.com/nianticlabs/modron/src/pb"
@@ -14,9 +15,10 @@ import (
 func TestCheckDetectsPrivateGoogleAccessDisabled(t *testing.T) {
 	resources := []*pb.Resource{
 		{
-			Name:      testProjectName,
-			Parent:    "",
-			IamPolicy: &pb.IamPolicy{},
+			Name:              testProjectName,
+			Parent:            "",
+			ResourceGroupName: testProjectName,
+			IamPolicy:         &pb.IamPolicy{},
 			Type: &pb.Resource_ResourceGroup{
 				ResourceGroup: &pb.ResourceGroup{},
 			},
@@ -49,7 +51,10 @@ func TestCheckDetectsPrivateGoogleAccessDisabled(t *testing.T) {
 
 	want := []*pb.Observation{
 		{
-			Name:          "network-no-private-access",
+			Name: PrivateGoogleAccessDisabled,
+			Resource: &pb.Resource{
+				Name: "network-no-private-access",
+			},
 			ObservedValue: structpb.NewStringValue("disabled"),
 			ExpectedValue: structpb.NewStringValue("enabled"),
 		},
@@ -58,7 +63,7 @@ func TestCheckDetectsPrivateGoogleAccessDisabled(t *testing.T) {
 	got := TestRuleRun(t, resources, []model.Rule{NewPrivateGoogleAccessDisabledRule()})
 
 	// Check that the observations are correct.
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer)); diff != "" {
+	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
 		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
 	}
 }

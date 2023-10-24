@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/exp/slices"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/nianticlabs/modron/src/model"
@@ -14,8 +14,9 @@ import (
 func TestExportedKeyWithAdminPrivileges(t *testing.T) {
 	resources := []*pb.Resource{
 		{
-			Name:          testProjectName,
-			CollectionUid: collectId,
+			Name:              testProjectName,
+			ResourceGroupName: testProjectName,
+			CollectionUid:     collectId,
 			IamPolicy: &pb.IamPolicy{
 				Resource: nil,
 				Permissions: []*pb.Permission{
@@ -26,7 +27,7 @@ func TestExportedKeyWithAdminPrivileges(t *testing.T) {
 						},
 					},
 					{
-						Role: "admin",
+						Role: "iam.securityAdmin",
 						Principals: []string{
 							"account-2",
 						},
@@ -110,10 +111,18 @@ func TestExportedKeyWithAdminPrivileges(t *testing.T) {
 
 	want := []*pb.Observation{
 		{
+			Name: ExportedKeyWithAdminPrivileges,
+			Resource: &pb.Resource{
+				Name: "account-1",
+			},
 			ExpectedValue: structpb.NewStringValue("0 keys"),
 			ObservedValue: structpb.NewStringValue("1 keys"),
 		},
 		{
+			Name: ExportedKeyWithAdminPrivileges,
+			Resource: &pb.Resource{
+				Name: "account-2",
+			},
 			ExpectedValue: structpb.NewStringValue("0 keys"),
 			ObservedValue: structpb.NewStringValue("2 keys"),
 		},
@@ -121,12 +130,7 @@ func TestExportedKeyWithAdminPrivileges(t *testing.T) {
 
 	got := TestRuleRun(t, resources, []model.Rule{NewExportedKeyWithAdminPrivilegesRule()})
 
-	// Sort observations lexicographically by resource name.
-	slices.SortStableFunc(got, func(lhs, rhs *pb.Observation) bool {
-		return lhs.Resource.Name < rhs.Resource.Name
-	})
-
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer)); diff != "" {
+	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
 		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
 	}
 }

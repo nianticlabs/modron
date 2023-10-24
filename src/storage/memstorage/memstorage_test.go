@@ -6,10 +6,10 @@ import (
 	"github.com/nianticlabs/modron/src/storage/test"
 )
 
-func TestResourceStorage(t *testing.T) {
+func TestStorageResource(t *testing.T) {
 	test.TestStorageResource(t, New())
 }
 
-func TestObservationStorage(t *testing.T) {
+func TestStorageObservation(t *testing.T) {
 	test.TestStorageObservation(t, New())
 }

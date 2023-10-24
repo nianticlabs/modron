@@ -1,8 +1,7 @@
-ARG GOVERSION=1.19
+ARG GOVERSION=1.21
 
 FROM alpine:latest as ca-certificates_builder
 RUN apk add --no-cache ca-certificates
-RUN update-ca-certificates
 
 FROM golang:${GOVERSION} as modron_builder
 ENV GOPATH /go

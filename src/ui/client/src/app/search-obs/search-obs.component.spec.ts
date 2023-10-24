@@ -1,9 +1,9 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { FilterObsPipe } from '../filter.pipe';
+import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { FilterObsPipe } from "../filter.pipe";
 
-import { SearchObsComponent } from './search-obs.component';
+import { SearchObsComponent } from "./search-obs.component";
 
-describe('SearchObsComponent', () => {
+describe("SearchObsComponent", () => {
   let component: SearchObsComponent;
   let fixture: ComponentFixture<SearchObsComponent>;
 
@@ -17,7 +17,7 @@ describe('SearchObsComponent', () => {
     fixture.detectChanges();
   });
 
-  it('should create', () => {
+  it("should create", () => {
     expect(component).toBeTruthy();
   });
 });

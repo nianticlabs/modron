@@ -109,6 +109,9 @@ export class KubernetesCluster extends jspb.Message {
   getNodesVersion(): string;
   setNodesVersion(value: string): void;
 
+  getLocation(): string;
+  setLocation(value: string): void;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): KubernetesCluster.AsObject;
   static toObject(includeInstance: boolean, msg: KubernetesCluster): KubernetesCluster.AsObject;
@@ -125,6 +128,7 @@ export namespace KubernetesCluster {
     privateCluster: boolean,
     masterVersion: string,
     nodesVersion: string,
+    location: string,
   }
 }
 
@@ -164,6 +168,9 @@ export class Database extends jspb.Message {
   getAvailabilityType(): Database.AvailabilityTypeMap[keyof Database.AvailabilityTypeMap];
   setAvailabilityType(value: Database.AvailabilityTypeMap[keyof Database.AvailabilityTypeMap]): void;
 
+  getIsPublic(): boolean;
+  setIsPublic(value: boolean): void;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Database.AsObject;
   static toObject(includeInstance: boolean, msg: Database): Database.AsObject;
@@ -187,6 +194,7 @@ export namespace Database {
     authorizedNetworksSettingAvailable: Database.AuthorizedNetworksMap[keyof Database.AuthorizedNetworksMap],
     authorizedNetworksList: Array<string>,
     availabilityType: Database.AvailabilityTypeMap[keyof Database.AvailabilityTypeMap],
+    isPublic: boolean,
   }
 
   export interface EncryptionTypeMap {
@@ -231,6 +239,224 @@ export namespace Database {
   }
 
   export const AvailabilityType: AvailabilityTypeMap;
+}
+
+export class IamGroup extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  getDisplayName(): string;
+  setDisplayName(value: string): void;
+
+  getDescription(): string;
+  setDescription(value: string): void;
+
+  hasKey(): boolean;
+  clearKey(): void;
+  getKey(): IamGroup.EntityKey | undefined;
+  setKey(value?: IamGroup.EntityKey): void;
+
+  getParent(): string;
+  setParent(value: string): void;
+
+  hasCreationDate(): boolean;
+  clearCreationDate(): void;
+  getCreationDate(): google_protobuf_timestamp_pb.Timestamp | undefined;
+  setCreationDate(value?: google_protobuf_timestamp_pb.Timestamp): void;
+
+  hasUpdateDate(): boolean;
+  clearUpdateDate(): void;
+  getUpdateDate(): google_protobuf_timestamp_pb.Timestamp | undefined;
+  setUpdateDate(value?: google_protobuf_timestamp_pb.Timestamp): void;
+
+  clearMemberList(): void;
+  getMemberList(): Array<IamGroup.Member>;
+  setMemberList(value: Array<IamGroup.Member>): void;
+  addMember(value?: IamGroup.Member, index?: number): IamGroup.Member;
+
+  hasDynamicGroupMetadata(): boolean;
+  clearDynamicGroupMetadata(): void;
+  getDynamicGroupMetadata(): IamGroup.DynamicGroupMetadata | undefined;
+  setDynamicGroupMetadata(value?: IamGroup.DynamicGroupMetadata): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): IamGroup.AsObject;
+  static toObject(includeInstance: boolean, msg: IamGroup): IamGroup.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: IamGroup, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): IamGroup;
+  static deserializeBinaryFromReader(message: IamGroup, reader: jspb.BinaryReader): IamGroup;
+}
+
+export namespace IamGroup {
+  export type AsObject = {
+    name: string,
+    displayName: string,
+    description: string,
+    key?: IamGroup.EntityKey.AsObject,
+    parent: string,
+    creationDate?: google_protobuf_timestamp_pb.Timestamp.AsObject,
+    updateDate?: google_protobuf_timestamp_pb.Timestamp.AsObject,
+    memberList: Array<IamGroup.Member.AsObject>,
+    dynamicGroupMetadata?: IamGroup.DynamicGroupMetadata.AsObject,
+  }
+
+  export class EntityKey extends jspb.Message {
+    getId(): string;
+    setId(value: string): void;
+
+    getNamespace(): string;
+    setNamespace(value: string): void;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): EntityKey.AsObject;
+    static toObject(includeInstance: boolean, msg: EntityKey): EntityKey.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: EntityKey, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): EntityKey;
+    static deserializeBinaryFromReader(message: EntityKey, reader: jspb.BinaryReader): EntityKey;
+  }
+
+  export namespace EntityKey {
+    export type AsObject = {
+      id: string,
+      namespace: string,
+    }
+  }
+
+  export class Member extends jspb.Message {
+    hasKey(): boolean;
+    clearKey(): void;
+    getKey(): IamGroup.EntityKey | undefined;
+    setKey(value?: IamGroup.EntityKey): void;
+
+    getRole(): IamGroup.Member.RoleMap[keyof IamGroup.Member.RoleMap];
+    setRole(value: IamGroup.Member.RoleMap[keyof IamGroup.Member.RoleMap]): void;
+
+    hasJoinDate(): boolean;
+    clearJoinDate(): void;
+    getJoinDate(): google_protobuf_timestamp_pb.Timestamp | undefined;
+    setJoinDate(value?: google_protobuf_timestamp_pb.Timestamp): void;
+
+    getType(): IamGroup.Member.TypeMap[keyof IamGroup.Member.TypeMap];
+    setType(value: IamGroup.Member.TypeMap[keyof IamGroup.Member.TypeMap]): void;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): Member.AsObject;
+    static toObject(includeInstance: boolean, msg: Member): Member.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: Member, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): Member;
+    static deserializeBinaryFromReader(message: Member, reader: jspb.BinaryReader): Member;
+  }
+
+  export namespace Member {
+    export type AsObject = {
+      key?: IamGroup.EntityKey.AsObject,
+      role: IamGroup.Member.RoleMap[keyof IamGroup.Member.RoleMap],
+      joinDate?: google_protobuf_timestamp_pb.Timestamp.AsObject,
+      type: IamGroup.Member.TypeMap[keyof IamGroup.Member.TypeMap],
+    }
+
+    export interface TypeMap {
+      MEMBER_TYPE_UNKNOWN: 0;
+      MEMBER_TYPE_USER: 1;
+      MEMBER_TYPE_SERVICE_ACCOUNT: 2;
+      MEMBER_TYPE_GROUP: 3;
+      MEMBER_TYPE_SHARED_DRIVE: 4;
+      MEMBER_TYPE_OTHER: 5;
+    }
+
+    export const Type: TypeMap;
+
+    export interface RoleMap {
+      MEMBER_ROLE_UNKNOWN: 0;
+      MEMBER_ROLE_OWNER: 1;
+      MEMBER_ROLE_MANAGER: 2;
+      MEMBER_ROLE_MEMBER: 3;
+    }
+
+    export const Role: RoleMap;
+  }
+
+  export class DynamicGroupMetadata extends jspb.Message {
+    clearQueryList(): void;
+    getQueryList(): Array<IamGroup.DynamicGroupMetadata.Query>;
+    setQueryList(value: Array<IamGroup.DynamicGroupMetadata.Query>): void;
+    addQuery(value?: IamGroup.DynamicGroupMetadata.Query, index?: number): IamGroup.DynamicGroupMetadata.Query;
+
+    hasStatus(): boolean;
+    clearStatus(): void;
+    getStatus(): IamGroup.DynamicGroupMetadata.Status | undefined;
+    setStatus(value?: IamGroup.DynamicGroupMetadata.Status): void;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DynamicGroupMetadata.AsObject;
+    static toObject(includeInstance: boolean, msg: DynamicGroupMetadata): DynamicGroupMetadata.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DynamicGroupMetadata, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DynamicGroupMetadata;
+    static deserializeBinaryFromReader(message: DynamicGroupMetadata, reader: jspb.BinaryReader): DynamicGroupMetadata;
+  }
+
+  export namespace DynamicGroupMetadata {
+    export type AsObject = {
+      queryList: Array<IamGroup.DynamicGroupMetadata.Query.AsObject>,
+      status?: IamGroup.DynamicGroupMetadata.Status.AsObject,
+    }
+
+    export class Query extends jspb.Message {
+      getQuery(): string;
+      setQuery(value: string): void;
+
+      getResourceType(): string;
+      setResourceType(value: string): void;
+
+      serializeBinary(): Uint8Array;
+      toObject(includeInstance?: boolean): Query.AsObject;
+      static toObject(includeInstance: boolean, msg: Query): Query.AsObject;
+      static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+      static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+      static serializeBinaryToWriter(message: Query, writer: jspb.BinaryWriter): void;
+      static deserializeBinary(bytes: Uint8Array): Query;
+      static deserializeBinaryFromReader(message: Query, reader: jspb.BinaryReader): Query;
+    }
+
+    export namespace Query {
+      export type AsObject = {
+        query: string,
+        resourceType: string,
+      }
+    }
+
+    export class Status extends jspb.Message {
+      getStatus(): string;
+      setStatus(value: string): void;
+
+      getTime(): string;
+      setTime(value: string): void;
+
+      serializeBinary(): Uint8Array;
+      toObject(includeInstance?: boolean): Status.AsObject;
+      static toObject(includeInstance: boolean, msg: Status): Status.AsObject;
+      static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+      static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+      static serializeBinaryToWriter(message: Status, writer: jspb.BinaryWriter): void;
+      static deserializeBinary(bytes: Uint8Array): Status;
+      static deserializeBinaryFromReader(message: Status, reader: jspb.BinaryReader): Status;
+    }
+
+    export namespace Status {
+      export type AsObject = {
+        status: string,
+        time: string,
+      }
+    }
+  }
 }
 
 export class Bucket extends jspb.Message {
@@ -417,6 +643,72 @@ export namespace IamPolicy {
   }
 }
 
+export class SslPolicy extends jspb.Message {
+  hasCreationDate(): boolean;
+  clearCreationDate(): void;
+  getCreationDate(): google_protobuf_timestamp_pb.Timestamp | undefined;
+  setCreationDate(value?: google_protobuf_timestamp_pb.Timestamp): void;
+
+  getName(): string;
+  setName(value: string): void;
+
+  getProfile(): SslPolicy.ProfileMap[keyof SslPolicy.ProfileMap];
+  setProfile(value: SslPolicy.ProfileMap[keyof SslPolicy.ProfileMap]): void;
+
+  getMintlsversion(): SslPolicy.MinTlsVersionMap[keyof SslPolicy.MinTlsVersionMap];
+  setMintlsversion(value: SslPolicy.MinTlsVersionMap[keyof SslPolicy.MinTlsVersionMap]): void;
+
+  clearEnabledfeaturesList(): void;
+  getEnabledfeaturesList(): Array<string>;
+  setEnabledfeaturesList(value: Array<string>): void;
+  addEnabledfeatures(value: string, index?: number): string;
+
+  clearCustomfeaturesList(): void;
+  getCustomfeaturesList(): Array<string>;
+  setCustomfeaturesList(value: Array<string>): void;
+  addCustomfeatures(value: string, index?: number): string;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): SslPolicy.AsObject;
+  static toObject(includeInstance: boolean, msg: SslPolicy): SslPolicy.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: SslPolicy, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): SslPolicy;
+  static deserializeBinaryFromReader(message: SslPolicy, reader: jspb.BinaryReader): SslPolicy;
+}
+
+export namespace SslPolicy {
+  export type AsObject = {
+    creationDate?: google_protobuf_timestamp_pb.Timestamp.AsObject,
+    name: string,
+    profile: SslPolicy.ProfileMap[keyof SslPolicy.ProfileMap],
+    mintlsversion: SslPolicy.MinTlsVersionMap[keyof SslPolicy.MinTlsVersionMap],
+    enabledfeaturesList: Array<string>,
+    customfeaturesList: Array<string>,
+  }
+
+  export interface MinTlsVersionMap {
+    MINTLSVERSION_UNKNOWN: 0;
+    TLS_1_0: 1;
+    TLS_1_1: 2;
+    TLS_1_2: 3;
+    TLS_1_3: 4;
+  }
+
+  export const MinTlsVersion: MinTlsVersionMap;
+
+  export interface ProfileMap {
+    PROFILE_UNKNOWN: 0;
+    COMPATIBLE: 1;
+    MODERN: 2;
+    RESTRICTED: 3;
+    CUSTOM: 4;
+  }
+
+  export const Profile: ProfileMap;
+}
+
 export class ServiceAccount extends jspb.Message {
   clearExportedCredentialsList(): void;
   getExportedCredentialsList(): Array<ExportedCredentials>;
@@ -443,6 +735,9 @@ export class ResourceGroup extends jspb.Message {
   getEnvironment(): string;
   setEnvironment(value: string): void;
 
+  getIdentifier(): string;
+  setIdentifier(value: string): void;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ResourceGroup.AsObject;
   static toObject(includeInstance: boolean, msg: ResourceGroup): ResourceGroup.AsObject;
@@ -456,6 +751,7 @@ export class ResourceGroup extends jspb.Message {
 export namespace ResourceGroup {
   export type AsObject = {
     environment: string,
+    identifier: string,
   }
 }
 
@@ -467,6 +763,11 @@ export class LoadBalancer extends jspb.Message {
   getCertificatesList(): Array<Certificate>;
   setCertificatesList(value: Array<Certificate>): void;
   addCertificates(value?: Certificate, index?: number): Certificate;
+
+  hasSslpolicy(): boolean;
+  clearSslpolicy(): void;
+  getSslpolicy(): SslPolicy | undefined;
+  setSslpolicy(value?: SslPolicy): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): LoadBalancer.AsObject;
@@ -482,6 +783,7 @@ export namespace LoadBalancer {
   export type AsObject = {
     type: LoadBalancer.TypeMap[keyof LoadBalancer.TypeMap],
     certificatesList: Array<Certificate.AsObject>,
+    sslpolicy?: SslPolicy.AsObject,
   }
 
   export interface TypeMap {
@@ -642,6 +944,11 @@ export class Resource extends jspb.Message {
   getDatabase(): Database | undefined;
   setDatabase(value?: Database): void;
 
+  hasGroup(): boolean;
+  clearGroup(): void;
+  getGroup(): IamGroup | undefined;
+  setGroup(value?: IamGroup): void;
+
   getTypeCase(): Resource.TypeCase;
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): Resource.AsObject;
@@ -675,6 +982,7 @@ export namespace Resource {
     bucket?: Bucket.AsObject,
     certificate?: Certificate.AsObject,
     database?: Database.AsObject,
+    group?: IamGroup.AsObject,
   }
 
   export enum TypeCase {
@@ -690,6 +998,7 @@ export namespace Resource {
     BUCKET = 108,
     CERTIFICATE = 109,
     DATABASE = 110,
+    GROUP = 111,
   }
 }
 

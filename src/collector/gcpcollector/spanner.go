@@ -1,14 +1,15 @@
 package gcpcollector
 
 import (
-	"fmt"
+	"github.com/nianticlabs/modron/src/common"
+	"github.com/nianticlabs/modron/src/constants"
+	"github.com/nianticlabs/modron/src/pb"
 
 	"golang.org/x/net/context"
-	"github.com/nianticlabs/modron/src/pb"
 )
 
 func (collector *GCPCollector) ListSpannerDatabases(ctx context.Context, resourceGroup *pb.Resource) ([]*pb.Resource, error) {
-	name := fmt.Sprintf(projectResourcePath, resourceGroup.Name)
+	name := constants.ResourceWithProjectsPrefix(resourceGroup.Name)
 	dbs, err := collector.api.ListSpannerDatabases(ctx, name)
 	if err != nil {
 		return nil, err
@@ -16,6 +17,8 @@ func (collector *GCPCollector) ListSpannerDatabases(ctx context.Context, resourc
 	resources := []*pb.Resource{}
 	for _, database := range dbs {
 		dbResource := &pb.Resource{
+			// TODO: Collect IAM Policy
+			Uid:               common.GetUUID(3),
 			ResourceGroupName: resourceGroup.Name,
 			Name:              database.Name,
 			Parent:            resourceGroup.Name,

@@ -62,7 +62,7 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: host.docker.internal
+                      address: 10.246.6.2 # you may need to replace this with your container/machine IP.
                       port_value: 4202
 
 admin:

@@ -6,10 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nianticlabs/modron/src/common"
+	"github.com/nianticlabs/modron/src/pb"
+
 	"golang.org/x/net/context"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"github.com/nianticlabs/modron/src/pb"
 )
 
 var (
@@ -28,13 +30,22 @@ func getAccessType(members []string) pb.Bucket_AccessType {
 
 // TODO: Check the ACL to detect if the bucket is public if uniform bucket-level access is disabled.
 func (collector *GCPCollector) ListBuckets(ctx context.Context, resourceGroup *pb.Resource) ([]*pb.Resource, error) {
-	res, err := collector.api.ListBuckets(resourceGroup.Name)
+	res, err := collector.api.ListBuckets(ctx, resourceGroup.Name)
 	if err != nil {
 		return nil, err
 	}
 
 	buckets := []*pb.Resource{}
-	for _, bucket := range res.Items {
+	removeDefaultBindings := func(members []string) (filteredList []string) {
+		for _, member := range members {
+			if strings.HasPrefix(member, "projectViewer:") || strings.HasPrefix(member, "projectOwner:") || strings.HasPrefix(member, "projectEditor:") {
+				continue
+			}
+			filteredList = append(filteredList, member)
+		}
+		return
+	}
+	for _, bucket := range res {
 		iamPolicy, err := collector.api.ListBucketsIamPolicy(bucket.Id)
 		if err != nil {
 			return nil, err
@@ -43,17 +54,13 @@ func (collector *GCPCollector) ListBuckets(ctx context.Context, resourceGroup *p
 		accessType := pb.Bucket_ACCESS_UNKNOWN
 		permissions := []*pb.Permission{}
 		for _, binding := range iamPolicy.Bindings {
-			for i := range binding.Members {
-				binding.Members[i] = strings.TrimPrefix(binding.Members[i], "projectViewer:")
-				binding.Members[i] = strings.TrimPrefix(binding.Members[i], "projectOwner:")
-				binding.Members[i] = strings.TrimPrefix(binding.Members[i], "projectEditor:")
-			}
+			bindingMembers := removeDefaultBindings(binding.Members)
 			permissions = append(permissions, &pb.Permission{
 				Role:       strings.TrimPrefix(binding.Role, "roles/"),
-				Principals: binding.Members,
+				Principals: bindingMembers,
 			})
 			if accessType != pb.Bucket_PUBLIC {
-				accessType = getAccessType(binding.Members)
+				accessType = getAccessType(bindingMembers)
 			}
 		}
 		creationDate, err := time.Parse(time.RFC3339, bucket.TimeCreated)
@@ -84,7 +91,7 @@ func (collector *GCPCollector) ListBuckets(ctx context.Context, resourceGroup *p
 			}
 		}
 		buckets = append(buckets, &pb.Resource{
-			Uid:               collector.getNewUid(),
+			Uid:               common.GetUUID(3),
 			ResourceGroupName: resourceGroup.Name,
 			Name:              formatResourceName(bucket.Name, bucket.Id),
 			Parent:            resourceGroup.Name,

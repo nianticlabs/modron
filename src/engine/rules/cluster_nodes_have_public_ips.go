@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/nianticlabs/modron/src/common"
-	"github.com/nianticlabs/modron/src/engine"
+	"github.com/nianticlabs/modron/src/constants"
 	"github.com/nianticlabs/modron/src/model"
 	"github.com/nianticlabs/modron/src/pb"
 
@@ -50,13 +50,13 @@ func (r *ClusterNodesHavePublicIpsRule) Check(ctx context.Context, rsrc *pb.Reso
 			Remediation: &pb.Remediation{
 				Description: fmt.Sprintf(
 					"Cluster [%q](https://console.cloud.google.com/kubernetes/list/overview?project=%s) has a public IP, which could make it accessible by anyone on the internet",
-					engine.GetGcpReadableResourceName(rsrc.Name),
-					rsrc.ResourceGroupName,
+					getGcpReadableResourceName(rsrc.Name),
+					constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 				),
 				Recommendation: fmt.Sprintf(
 					"Unless strictly needed, redeploy cluster [%q](https://console.cloud.google.com/kubernetes/list/overview?project=%s) as a [private cluster](https://cloud.google.com/kubernetes-engine/docs/how-to/private-clusters)",
-					engine.GetGcpReadableResourceName(rsrc.Name),
-					rsrc.ResourceGroupName,
+					getGcpReadableResourceName(rsrc.Name),
+					constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 				),
 			},
 		}

@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/nianticlabs/modron/src/common"
-	"github.com/nianticlabs/modron/src/engine"
+	"github.com/nianticlabs/modron/src/constants"
 	"github.com/nianticlabs/modron/src/model"
 	"github.com/nianticlabs/modron/src/pb"
 
@@ -20,7 +20,7 @@ import (
 const (
 	OutDatedKubernetesVersion = "OUTDATED_KUBERNETES_VERSION"
 	// https://cloud.google.com/kubernetes-engine/docs/release-schedule
-	currentK8sVersion = 1.21
+	currentK8sVersion = 1.23
 )
 
 type OutDatedKubernetesVersionRule struct {
@@ -78,12 +78,12 @@ func (r *OutDatedKubernetesVersionRule) Check(ctx context.Context, rsrc *pb.Reso
 			Remediation: &pb.Remediation{
 				Description: fmt.Sprintf(
 					"Cluster [%q](https://console.cloud.google.com/kubernetes/list/overview?project=%q) uses an outdated Kubernetes master version",
-					engine.GetGcpReadableResourceName(rsrc.Name),
+					getGcpReadableResourceName(rsrc.Name),
 					rsrc.ResourceGroupName,
 				),
 				Recommendation: fmt.Sprintf(
 					"Update the Kubernetes master version on cluster [%q](https://console.cloud.google.com/kubernetes/list/overview?project=%s) to at least %.2f. For more details on this process, see [this article](https://cloud.google.com/kubernetes-engine/docs/how-to/upgrading-a-cluster)",
-					engine.GetGcpReadableResourceName(rsrc.Name),
+					getGcpReadableResourceName(rsrc.Name),
 					rsrc.ResourceGroupName,
 					currentK8sVersion,
 				),
@@ -103,13 +103,13 @@ func (r *OutDatedKubernetesVersionRule) Check(ctx context.Context, rsrc *pb.Reso
 			Remediation: &pb.Remediation{
 				Description: fmt.Sprintf(
 					"Cluster [%q](https://console.cloud.google.com/kubernetes/list/overview?project=%s) uses an outdated Kubernetes version",
-					engine.GetGcpReadableResourceName(rsrc.Name),
-					rsrc.ResourceGroupName,
+					getGcpReadableResourceName(rsrc.Name),
+					constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 				),
 				Recommendation: fmt.Sprintf(
 					"Update the Kubernetes version on cluster [%q](https://console.cloud.google.com/kubernetes/list/overview?project=%s) to at least %.2f. For more details on this process, see [this article](https://cloud.google.com/kubernetes-engine/docs/how-to/upgrading-a-cluster)",
-					engine.GetGcpReadableResourceName(rsrc.Name),
-					rsrc.ResourceGroupName,
+					getGcpReadableResourceName(rsrc.Name),
+					constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 					currentK8sVersion,
 				),
 			},

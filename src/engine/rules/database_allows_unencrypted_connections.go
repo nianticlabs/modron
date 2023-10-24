@@ -8,7 +8,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/nianticlabs/modron/src/common"
-	"github.com/nianticlabs/modron/src/engine"
 	"github.com/nianticlabs/modron/src/model"
 	"github.com/nianticlabs/modron/src/pb"
 )
@@ -52,12 +51,12 @@ func (r *DatabaseAllowsUnencryptedConnectionsRule) Check(ctx context.Context, rs
 			ObservedValue: structpb.NewBoolValue(false),
 			Remediation: &pb.Remediation{
 				Description: fmt.Sprintf(
-					"Database %s is reachable from any IP on the Internet.",
-					engine.GetGcpReadableResourceName(rsrc.Name),
+					"Database %s allows for unencrypted connections.",
+					getGcpReadableResourceName(rsrc.Name),
 				),
 				Recommendation: fmt.Sprintf(
-					"Enable the authorized network setting in the database settings to restrict what networks can access %s.",
-					engine.GetGcpReadableResourceName(rsrc.Name),
+					"Enable the require SSL setting in the database settings to allow only encrypted connections to %s.",
+					getGcpReadableResourceName(rsrc.Name),
 				),
 			},
 		}

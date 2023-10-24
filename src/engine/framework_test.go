@@ -14,8 +14,9 @@ import (
 
 var resources = []*pb.Resource{
 	{
-		Name:   "project-0",
-		Parent: "",
+		Name:              "projects/project-0",
+		Parent:            "folders/123",
+		ResourceGroupName: "projects/project-0",
 		IamPolicy: &pb.IamPolicy{
 			Resource: nil,
 			Permissions: []*pb.Permission{
@@ -38,8 +39,9 @@ var resources = []*pb.Resource{
 		},
 	},
 	{
-		Name:   "project-1",
-		Parent: "",
+		Name:              "projects/project-1",
+		Parent:            "folders/234",
+		ResourceGroupName: "projects/project-1",
 		IamPolicy: &pb.IamPolicy{
 			Resource: nil,
 			Permissions: []*pb.Permission{
@@ -60,7 +62,7 @@ var resources = []*pb.Resource{
 
 func TestResourceFromStructValue(t *testing.T) {
 	value1, err := structpb.NewValue(map[string]interface{}{
-		"name": "project-0",
+		"name": "projects/project-0",
 		"iamPolicy": map[string]interface{}{
 			"resource": map[string]interface{}{},
 			"permissions": []interface{}{
@@ -80,13 +82,12 @@ func TestResourceFromStructValue(t *testing.T) {
 		},
 		"resourceGroup": map[string]interface{}{},
 	})
-
 	if err != nil {
 		t.Errorf(`structpb.NewValue unexpected error: "%v"`, err)
 	}
 
 	value2, err := structpb.NewValue(map[string]interface{}{
-		"name": "project-1",
+		"name": "projects/project-1",
 		"iamPolicy": map[string]interface{}{
 			"resource": map[string]interface{}{},
 			"permissions": []interface{}{
@@ -101,7 +102,6 @@ func TestResourceFromStructValue(t *testing.T) {
 		},
 		"resourceGroup": map[string]interface{}{},
 	})
-
 	if err != nil {
 		t.Errorf(`structpb.NewValue unexpected error: "%v"`, err)
 	}

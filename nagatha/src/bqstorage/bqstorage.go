@@ -13,6 +13,10 @@ import (
 	"github.com/nianticlabs/modron/nagatha/src/model"
 )
 
+const (
+	bigQueryZero = "0001-01-01 00:00:00 UTC"
+)
+
 type BigQueryStorage struct {
 	client *bigquery.Client
 	cfg    Config
@@ -79,10 +83,19 @@ func (bqs *BigQueryStorage) EditException(ctx context.Context, exception model.E
 func (bqs *BigQueryStorage) DeleteException(ctx context.Context, uuid string) error {
 	return fmt.Errorf("unimplemented")
 }
-func (bqs *BigQueryStorage) ListExceptions(ctx context.Context) ([]model.Exception, error) {
+func (bqs *BigQueryStorage) ListExceptions(ctx context.Context, user string) ([]model.Exception, error) {
 	// TODO(lds): Add pagination here if the list becomes too large.
-	query := bqs.client.Query(
-		`SELECT * FROM ` + bqs.cfg.ExceptionTableID)
+	querySql := `SELECT * FROM ` + bqs.cfg.ExceptionTableID
+	if user != "" {
+		querySql += ` WHERE userEmail = @userEmail`
+	}
+	query := bqs.client.Query(querySql)
+	query.Parameters = []bigquery.QueryParameter{
+		{
+			Name:  "userEmail",
+			Value: user,
+		},
+	}
 	it, err := bqs.runQuery(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("list exceptions: %q", err)
@@ -96,7 +109,7 @@ func (bqs *BigQueryStorage) ListExceptions(ctx context.Context) ([]model.Excepti
 
 func (bqs *BigQueryStorage) ListNotifications(ctx context.Context) ([]model.Notification, error) {
 	query := bqs.client.Query(
-		`SELECT uuid, sourceSystem, name, content, recipient, intervalBetweenReminders, createdOn , countif(sentOn != "` + time.Time{}.Format(time.RFC3339) + `") as sent
+		`SELECT uuid, sourceSystem, name, content, recipient, intervalBetweenReminders, createdOn , countif(sentOn != "` + bigQueryZero + `") as sent
 		FROM  ` + bqs.cfg.NotificationTableID + `
 		GROUP BY uuid, sourceSystem, name, content, recipient, createdOn, intervalBetweenReminders`)
 	it, err := bqs.runQuery(ctx, query)
@@ -126,6 +139,24 @@ func (bqs *BigQueryStorage) ListNotificationsToSend(ctx context.Context) ([]mode
 		return nil, fmt.Errorf("list: %v", err)
 	}
 	return notifications, nil
+}
+
+func (bqs *BigQueryStorage) LastSendDate(ctx context.Context) (time.Time, error) {
+	query := bqs.client.Query(
+		`SELECT * FROM ` + bqs.cfg.NotificationTableID + ` ORDER BY sentOn DESC LIMIT 1`)
+
+	it, err := bqs.runQuery(ctx, query)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("list notifications: %q", err)
+	}
+	notifications, err := notificationsFromAnswer(it)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("last send date: %v", err)
+	}
+	if len(notifications) != 1 {
+		return time.Time{}, fmt.Errorf("last send date expected len(notifications) to be 1, is %d", len(notifications))
+	}
+	return notifications[0].SentOn, nil
 }
 
 func (bqs *BigQueryStorage) NotificationSent(ctx context.Context, notification model.Notification) error {

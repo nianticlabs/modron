@@ -1,7 +1,11 @@
 syntax = "proto3";
 
 // You may want to read https://google.aip.dev/general first.
-// To compile:  /usr/local/protoc/bin/protoc --plugin=/go/bin/protoc-gen-go --plugin=/go/bin/protoc-gen-go-grpc --plugin=/usr/local/bin/protoc-gen-grpc-web -I=proto/ --go_out=proto/. --grpc-web_out=import_style=typescript,mode=grpcweb:proto/ --go-grpc_out=proto/. proto/modron.proto proto/notification.proto
+// To compile:  /usr/local/protoc/bin/protoc --plugin=/go/bin/protoc-gen-go
+// --plugin=/go/bin/protoc-gen-go-grpc
+// --plugin=/usr/local/bin/protoc-gen-grpc-web -I=proto/ --go_out=proto/.
+// --grpc-web_out=import_style=typescript,mode=grpcweb:proto/
+// --go-grpc_out=proto/. proto/modron.proto proto/notification.proto
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
@@ -10,320 +14,401 @@ import "google/protobuf/timestamp.proto";
 option go_package = "./pb";
 
 message ExportedCredentials {
-    google.protobuf.Timestamp creation_date = 1;
-    google.protobuf.Timestamp expiration_date = 2;
-    google.protobuf.Timestamp last_usage = 3;
+  google.protobuf.Timestamp creation_date = 1;
+  google.protobuf.Timestamp expiration_date = 2;
+  google.protobuf.Timestamp last_usage = 3;
 }
 
 message VmInstance {
-    string public_ip = 1;
-    string private_ip = 2;
-    // ServiceAccount.Name
-    string identity = 3;
+  string public_ip = 1;
+  string private_ip = 2;
+  // ServiceAccount.Name
+  string identity = 3;
 }
 
 message Network {
-    repeated string ips = 1;
-    bool gcp_private_google_access_v4 = 2;
+  repeated string ips = 1;
+  bool gcp_private_google_access_v4 = 2;
 }
 
 message KubernetesCluster {
-    repeated string master_authorized_networks = 1;
-    bool private_cluster = 2;
-    string master_version = 3;
-    string nodes_version = 4;
+  repeated string master_authorized_networks = 1;
+  bool private_cluster = 2;
+  string master_version = 3;
+  string nodes_version = 4;
+  string location = 5;
 }
 
 message Database {
-    string type = 1;
-    string version = 2;
+  string type = 1;
+  string version = 2;
 
-    enum EncryptionType {
-        ENCRYPTION_UNKNOWN = 0;
-        INSECURE_CLEAR_TEXT = 1;
-        ENCRYPTION_MANAGED = 2;
-        ENCRYPTION_USER_MANAGED = 3;
+  enum EncryptionType {
+    ENCRYPTION_UNKNOWN = 0;
+    INSECURE_CLEAR_TEXT = 1;
+    ENCRYPTION_MANAGED = 2;
+    ENCRYPTION_USER_MANAGED = 3;
+  }
+  EncryptionType encryption = 3;
+
+  string address = 4;
+
+  bool auto_resize = 5;
+
+  enum BackupConfiguration {
+    BACKUP_CONFIG_UNKNOWN = 0;
+    BACKUP_CONFIG_DISABLED = 1;
+    BACKUP_CONFIG_MANAGED = 2;
+  }
+  BackupConfiguration backup_config = 6;
+
+  enum PasswordPolicy {
+    PASSWORD_POLICY_UNKNOWN = 0;
+    PASSWORD_POLICY_WEAK = 1;
+    PASSWORD_POLICY_STRONG = 2;
+  }
+  PasswordPolicy password_policy = 7;
+
+  bool tls_required = 8;
+
+  enum AuthorizedNetworks {
+    AUTHORIZED_NETWORKS_UNKNOWN = 0;
+    AUTHORIZED_NETWORKS_NOT_SET = 1;
+    AUTHORIZED_NETWORKS_SET = 2;
+  }
+  AuthorizedNetworks authorized_networks_setting_available = 9;
+
+  repeated string authorized_networks = 10;
+
+  // Assuming: zone < region (within a [section] of a country) < global (across
+  // multiple countries or continents)
+  enum AvailabilityType {
+    HA_UNKNOWN = 0;
+    NO_HA = 1;
+    HA_ZONAL = 2;
+    HA_REGIONAL = 3;
+    HA_GLOBAL = 4;
+  }
+  AvailabilityType availability_type = 11;
+
+  bool is_public = 12;
+}
+
+message IamGroup {
+
+  message EntityKey {
+    string id = 1;
+    string namespace = 2;
+  }
+  message Member {
+    enum Type {
+      MEMBER_TYPE_UNKNOWN = 0;
+      MEMBER_TYPE_USER = 1;
+      MEMBER_TYPE_SERVICE_ACCOUNT = 2;
+      MEMBER_TYPE_GROUP = 3;
+      MEMBER_TYPE_SHARED_DRIVE = 4;
+      MEMBER_TYPE_OTHER = 5;
     }
-    EncryptionType encryption = 3;
-
-    string address = 4;
-
-    bool auto_resize = 5;
-
-    enum BackupConfiguration {
-        BACKUP_CONFIG_UNKNOWN = 0;
-        BACKUP_CONFIG_DISABLED = 1;
-        BACKUP_CONFIG_MANAGED = 2;
-
+    enum Role {
+      MEMBER_ROLE_UNKNOWN = 0;
+      MEMBER_ROLE_OWNER = 1;
+      MEMBER_ROLE_MANAGER = 2;
+      MEMBER_ROLE_MEMBER = 3;
     }
-    BackupConfiguration backup_config = 6;
-
-    enum PasswordPolicy {
-        PASSWORD_POLICY_UNKNOWN = 0;
-        PASSWORD_POLICY_WEAK = 1;
-        PASSWORD_POLICY_STRONG = 2;
+    EntityKey key = 1;
+    Role role = 2;
+    google.protobuf.Timestamp join_date = 3;
+    Type type = 4;
+  }
+  message DynamicGroupMetadata {
+    message Query {
+      string query = 1;
+      string resource_type = 2;
     }
-    PasswordPolicy password_policy = 7;
-
-    bool tls_required = 8;
-
-    enum AuthorizedNetworks {
-        AUTHORIZED_NETWORKS_UNKNOWN = 0;
-        AUTHORIZED_NETWORKS_NOT_SET = 1;
-        AUTHORIZED_NETWORKS_SET = 2;
+    message Status {
+      string status = 1;
+      string time = 2;
     }
-    AuthorizedNetworks authorized_networks_setting_available = 9;
-    
-    repeated string authorized_networks = 10;
+    repeated Query query = 1;
+    Status status = 2;
+  }
 
-    // Assuming: zone < region (within a [section] of a country) < global (across multiple countries or continents)
-    enum AvailabilityType {
-        HA_UNKNOWN = 0;
-        NO_HA = 1;
-        HA_ZONAL = 2;
-        HA_REGIONAL = 3;
-        HA_GLOBAL = 4;
-    }
-    AvailabilityType availability_type = 11;
+  string name = 1;
+  string display_name = 2;
+  string description = 3;
+  EntityKey key = 4;
+  string parent = 5;
+  google.protobuf.Timestamp creation_date = 6;
+  google.protobuf.Timestamp update_date = 7;
+  repeated Member member = 8;
+  optional DynamicGroupMetadata dynamic_group_metadata = 9;
 }
 
 // TODO: Consider adding the following:
 // - Object versioning policy
 message Bucket {
-    // Object retention policy.
-    message RetentionPolicy {
-        // The duration for which objects in the bucket need to be retained.
-        google.protobuf.Duration period = 1;
-        // If true, the policy cannot be modified.
-        bool is_locked = 2;
-    }
-    // Server Side Encryption (SSE) policy.
-    message EncryptionPolicy {
-        // If true, SSE is enabled for the bucket. Note that SSE is always enabled in GCP.
-        bool is_enabled = 1;
-        // If true, a Customer-Managed Key (CMK) is used to encrypt objects in the bucket
-        // instead of a default key provided by a platform Key Management Service (KMS).
-        bool is_key_customer_managed = 2;
-    }
-    enum AccessType {
-        ACCESS_UNKNOWN = 0;
-        PRIVATE = 1;
-        PUBLIC = 2;
-    }
-    enum AccessControlType {
-        ACCESS_CONTROL_UNKNOWN = 0;
-        NON_UNIFORM = 1;
-        UNIFORM = 2;
-    }
-    google.protobuf.Timestamp creation_date = 1;
-    // The retention policy for objects in the bucket.
-    optional RetentionPolicy retention_policy = 2;
-    // The SSE policy for the bucket.
-    optional EncryptionPolicy encryption_policy = 3;
-    // If true, the bucket is publicly accessible.
-    AccessType access_type = 4;
-    // If true, Access Control Lists (ACLs) are enabled for the bucket. In GCP, this entails
-    // that uniform bucket-level access is disabled.
-    AccessControlType access_control_type = 5;
+  // Object retention policy.
+  message RetentionPolicy {
+    // The duration for which objects in the bucket need to be retained.
+    google.protobuf.Duration period = 1;
+    // If true, the policy cannot be modified.
+    bool is_locked = 2;
+  }
+  // Server Side Encryption (SSE) policy.
+  message EncryptionPolicy {
+    // If true, SSE is enabled for the bucket. Note that SSE is always enabled
+    // in GCP.
+    bool is_enabled = 1;
+    // If true, a Customer-Managed Key (CMK) is used to encrypt objects in the
+    // bucket instead of a default key provided by a platform Key Management
+    // Service (KMS).
+    bool is_key_customer_managed = 2;
+  }
+  enum AccessType {
+    ACCESS_UNKNOWN = 0;
+    PRIVATE = 1;
+    PUBLIC = 2;
+  }
+  enum AccessControlType {
+    ACCESS_CONTROL_UNKNOWN = 0;
+    NON_UNIFORM = 1;
+    UNIFORM = 2;
+  }
+  google.protobuf.Timestamp creation_date = 1;
+  // The retention policy for objects in the bucket.
+  optional RetentionPolicy retention_policy = 2;
+  // The SSE policy for the bucket.
+  optional EncryptionPolicy encryption_policy = 3;
+  // If true, the bucket is publicly accessible.
+  AccessType access_type = 4;
+  // If true, Access Control Lists (ACLs) are enabled for the bucket. In GCP,
+  // this entails that uniform bucket-level access is disabled.
+  AccessControlType access_control_type = 5;
 }
 
-message APIKey {
-    repeated string scopes = 1;
-}
+message APIKey { repeated string scopes = 1; }
 
 message Permission {
-    string role = 1;
-    repeated string principals = 2;
+  string role = 1;
+  repeated string principals = 2;
 }
 
 message IamPolicy {
-    // Resource this IAM policy is attached to.
-    Resource resource = 1;
-    repeated Permission permissions = 2;
+  // Resource this IAM policy is attached to.
+  Resource resource = 1;
+  repeated Permission permissions = 2;
+}
+
+message SslPolicy {
+  enum MinTlsVersion {
+    MinTlsVersion_UNKNOWN = 0;
+    TLS_1_0 = 1;
+    TLS_1_1 = 2;
+    TLS_1_2 = 3;
+    TLS_1_3 = 4;
+  }
+  enum Profile {
+    Profile_UNKNOWN = 0;
+    COMPATIBLE = 1;
+    MODERN = 2;
+    RESTRICTED = 3;
+    CUSTOM = 4;
+  }
+  google.protobuf.Timestamp creation_date = 1;
+  string name = 2;
+  Profile profile = 3;
+  MinTlsVersion minTlsVersion = 4;
+  repeated string enabledFeatures = 5;
+  repeated string customFeatures = 6;
 }
 
 message ServiceAccount {
-    repeated ExportedCredentials exported_credentials = 1;
+  repeated ExportedCredentials exported_credentials = 1;
 }
 
-// ResourceGroup designs the smallest administrative grouping of resources.
+// ResourceGroup designates the smallest administrative grouping of resources.
 message ResourceGroup {
-    // Environment describes the environment of this resource group. For instance prod, dev, etc.
-    string environment = 1;
+  // Environment describes the environment of this resource group. For instance
+  // prod, dev, etc.
+  string environment = 1;
+  // Number describes an ID used by the platform to identify the Resource Group.
+  // In GCP this is the project number.
+  string identifier = 2;
 }
- 
+
 message LoadBalancer {
-    enum Type {
-        UNKNOWN_TYPE = 0;
-        // An external load balancer exposes internal resources on the internet.
-        EXTERNAL = 1;
-        INTERNAL = 2;
-    }
-    Type type = 1;
-    repeated Certificate certificates = 2;
+  enum Type {
+    UNKNOWN_TYPE = 0;
+    // An external load balancer exposes internal resources on the internet.
+    EXTERNAL = 1;
+    INTERNAL = 2;
+  }
+  Type type = 1;
+  repeated Certificate certificates = 2;
+  SslPolicy sslPolicy = 3;
 }
 
 message Certificate {
-    enum Type {
-        UNKNOWN = 0;
-        // Certificate managed by the user and imported into the platform.
-        IMPORTED = 1;
-        // Certificate managed by the platform.
-        MANAGED = 2;
-    }
-    Type type = 1;
+  enum Type {
+    UNKNOWN = 0;
+    // Certificate managed by the user and imported into the platform.
+    IMPORTED = 1;
+    // Certificate managed by the platform.
+    MANAGED = 2;
+  }
+  Type type = 1;
 
-    // Fully-qualified domain name bound to the certificate.
-    string domain_name = 2;
+  // Fully-qualified domain name bound to the certificate.
+  string domain_name = 2;
 
-    // The list of alternative domain names bound to the certificate.
-    // See https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.6.
-    repeated string subject_alternative_names = 3;
+  // The list of alternative domain names bound to the certificate.
+  // See https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.6.
+  repeated string subject_alternative_names = 3;
 
-    google.protobuf.Timestamp creation_date = 4;
-    google.protobuf.Timestamp expiration_date = 5;
+  google.protobuf.Timestamp creation_date = 4;
+  google.protobuf.Timestamp expiration_date = 5;
 
-    // The name of the certificate authority that issued the certificate.
-    string issuer = 6;
+  // The name of the certificate authority that issued the certificate.
+  string issuer = 6;
 
-    // The algorithm that was used by the issuer to sign the certificate.
-    string signature_algorithm = 7;
+  // The algorithm that was used by the issuer to sign the certificate.
+  string signature_algorithm = 7;
 
-    // The chain starts with the leaf certificate and continues with the
-    // remaining endorsing certificates in the chain of trust, if any.
-    // See https://datatracker.ietf.org/doc/html/rfc1421.html.
-    string pem_certificate_chain = 8;
+  // The chain starts with the leaf certificate and continues with the
+  // remaining endorsing certificates in the chain of trust, if any.
+  // See https://datatracker.ietf.org/doc/html/rfc1421.html.
+  string pem_certificate_chain = 8;
 }
 
 message Resource {
-    // Unique identifier of the resource as given by Modron
-    string uid = 1;
-    // Unique identifier of the collection run associated with the resource
-    string collection_uid = 2;
-    // collection timestamp
-    google.protobuf.Timestamp timestamp = 3;
-    // human readable name
-    string display_name = 4;
-    // link to the platform resource
-    string link = 5;
-    // provider uid concatenated with the resource human readable name
-    string name = 6;
-    // The name of the immediate parent resource.
-    string parent = 7;
-    // The name of the resource group the resource is in
-    string resource_group_name = 8;
-    // IamPolicy describes the IAM policy associated with that resource.
-    IamPolicy iam_policy = 9;
-    // Types should be generic enough that they can match types of different cloud providers.
-    oneof type {
-        VmInstance vm_instance = 100;
-        Network network = 101;
-        KubernetesCluster kubernetes_cluster = 102;
-        ServiceAccount service_account = 103;
-        LoadBalancer load_balancer = 104;
-        ResourceGroup resource_group = 105;
-        ExportedCredentials exported_credentials = 106;
-        APIKey api_key = 107;
-        Bucket bucket = 108;
-        Certificate certificate = 109;
-        Database database = 110;
-    }
+  // Unique identifier of the resource as given by Modron
+  string uid = 1;
+  // Unique identifier of the collection run associated with the resource
+  string collection_uid = 2;
+  // collection timestamp
+  google.protobuf.Timestamp timestamp = 3;
+  // human readable name
+  string display_name = 4;
+  // link to the platform resource
+  string link = 5;
+  // provider uid concatenated with the resource human readable name
+  string name = 6;
+  // The name of the immediate parent resource.
+  string parent = 7;
+  // The name of the resource group the resource is in
+  string resource_group_name = 8;
+  // IamPolicy describes the IAM policy associated with that resource.
+  IamPolicy iam_policy = 9;
+  // Types should be generic enough that they can match types of different cloud
+  // providers.
+  oneof type {
+    VmInstance vm_instance = 100;
+    Network network = 101;
+    KubernetesCluster kubernetes_cluster = 102;
+    ServiceAccount service_account = 103;
+    LoadBalancer load_balancer = 104;
+    ResourceGroup resource_group = 105;
+    ExportedCredentials exported_credentials = 106;
+    APIKey api_key = 107;
+    Bucket bucket = 108;
+    Certificate certificate = 109;
+    Database database = 110;
+    IamGroup group = 111;
+  }
 }
 
 message Remediation {
-    string description = 1;
-    string recommendation = 2;
+  string description = 1;
+  string recommendation = 2;
 }
 
 message Observation {
-    string uid = 1;
-    string scan_uid = 2;
-    google.protobuf.Timestamp timestamp = 3;
-    Resource resource = 4;
-    // Human readable name of the observation.
-    string name = 5;
-    // Value found in the configuration that causes the issue.
-    google.protobuf.Value expected_value = 6;
-    google.protobuf.Value observed_value = 7;
-    Remediation remediation = 8;
+  string uid = 1;
+  string scan_uid = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  Resource resource = 4;
+  // Human readable name of the observation.
+  string name = 5;
+  // Value found in the configuration that causes the issue.
+  google.protobuf.Value expected_value = 6;
+  google.protobuf.Value observed_value = 7;
+  Remediation remediation = 8;
 }
 
-message ScanResultsList {
-    repeated Observation observations = 1;
-}
+message ScanResultsList { repeated Observation observations = 1; }
 
 service ModronService {
-    // Scanning a project is a long running operation. We don't expect the user
-    // to get an instantanous result. Instead users will receive an ID to check back
-    // later for results.
-    // We really want to use https://google.aip.dev/151 here, but it's quite an overhead for the 
-    // first implementation.
-    // Performs a collection, followed by a scan, on the requested resource groups
-    rpc CollectAndScan(CollectAndScanRequest) returns (CollectAndScanResponse);
-    // List the latest observations resource groups 
-    rpc ListObservations(ListObservationsRequest) returns (ListObservationsResponse);
+  // Scanning a project is a long running operation. We don't expect the user
+  // to get an instantanous result. Instead users will receive an ID to check
+  // back later for results. We really want to use https://google.aip.dev/151
+  // here, but it's quite an overhead for the first implementation. Performs a
+  // collection, followed by a scan, on the requested resource groups
+  rpc CollectAndScan(CollectAndScanRequest) returns (CollectAndScanResponse);
+  // List the latest observations resource groups
+  rpc ListObservations(ListObservationsRequest)
+      returns (ListObservationsResponse);
 
-    // CreateObservation is meant for creating new observation *linked with an existing resource* into modron.
-    // This will fail if the resource doesn't exist or can't be found.
-    rpc CreateObservation(CreateObservationRequest) returns (Observation);
+  // CreateObservation is meant for creating new observation *linked with an
+  // existing resource* into modron. This will fail if the resource doesn't
+  // exist or can't be found.
+  rpc CreateObservation(CreateObservationRequest) returns (Observation);
 
-    rpc GetStatusCollectAndScan(GetStatusCollectAndScanRequest) returns (GetStatusCollectAndScanResponse);
-    // TODO:
-    // Implement:
-    // - Search
-    // - Some statistics (count of resources per specific observation characteristics)
+  rpc GetStatusCollectAndScan(GetStatusCollectAndScanRequest)
+      returns (GetStatusCollectAndScanResponse);
+  // TODO:
+  // Implement:
+  // - Search
+  // - Some statistics (count of resources per specific observation
+  // characteristics)
 }
 
 enum RequestStatus {
-    UNKNOWN = 0;
-    DONE = 1;
-    RUNNING = 2;
-    ALREADY_RUNNING = 3;
-    CANCELLED = 4;
+  UNKNOWN = 0;
+  DONE = 1;
+  RUNNING = 2;
+  ALREADY_RUNNING = 3;
+  CANCELLED = 4;
 }
 
 message GetStatusCollectAndScanResponse {
-    RequestStatus collect_status = 1;
-    RequestStatus scan_status = 2;
+  RequestStatus collect_status = 1;
+  RequestStatus scan_status = 2;
 }
 
 message GetStatusCollectAndScanRequest {
-    string collect_id = 1;
-    string scan_id = 2;
+  string collect_id = 1;
+  string scan_id = 2;
 }
 
-message CollectAndScanRequest {
-    repeated string resource_group_names = 1;
-}
+message CollectAndScanRequest { repeated string resource_group_names = 1; }
 
 message CollectAndScanResponse {
-    string collect_id = 1;
-    string scan_id = 2;
+  string collect_id = 1;
+  string scan_id = 2;
 }
 
 message ListObservationsRequest {
-    string page_token = 1;
-    int32 page_size = 2;
-    repeated string resource_group_names = 3;
+  string page_token = 1;
+  int32 page_size = 2;
+  repeated string resource_group_names = 3;
 }
 
-message CreateObservationRequest {
-    Observation observation = 1;
-}
+message CreateObservationRequest { Observation observation = 1; }
 
 // we use this pair to get information about the rules that have no observations
 message RuleObservationPair {
-    string rule = 1;
-    repeated Observation observations = 2;
+  string rule = 1;
+  repeated Observation observations = 2;
 }
 
-// we use this pair to get information about the resource groups that have no observations
+// we use this pair to get information about the resource groups that have no
+// observations
 message ResourceGroupObservationsPair {
-    string resource_group_name = 1;
-    repeated RuleObservationPair rules_observations = 2;
+  string resource_group_name = 1;
+  repeated RuleObservationPair rules_observations = 2;
 }
 
 message ListObservationsResponse {
-    repeated ResourceGroupObservationsPair resource_groups_observations = 1;
-    string next_page_token = 2;
-} 
+  repeated ResourceGroupObservationsPair resource_groups_observations = 1;
+  string next_page_token = 2;
+}

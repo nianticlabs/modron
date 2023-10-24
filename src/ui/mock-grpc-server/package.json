@@ -11,14 +11,14 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@alenon/grpc-mock-server": "^3.0.11",
+    "@alenon/grpc-mock-server": "^3.0.21",
     "wait-for-sigint": "^0.1.0",
-    "nodemon": "^2.0.20",
+    "nodemon": "^3.0.1",
     "ts-node": "^10.9.1",
-    "@grpc/grpc-js": "^1.7.1",
+    "@grpc/grpc-js": "^1.8.18",
     "@improbable-eng/grpc-web": "^0.15.0",
     "@types/google-protobuf": "^3.15.6",
-    "google-protobuf": "^3.21.0"
+    "google-protobuf": "^3.21.2"
   },
   "devDependencies": {
     "ts-protoc-gen": "^0.15.0"
