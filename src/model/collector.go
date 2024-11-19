@@ -2,15 +2,18 @@ package model
 
 import (
 	"golang.org/x/net/context"
-	"github.com/nianticlabs/modron/src/pb"
+
+	pb "github.com/nianticlabs/modron/src/proto/generated"
 )
 
 type Collector interface {
-	CollectAndStoreAllResourceGroupResources(ctx context.Context, collectId string, resourceGroupNames []string) []error
-	CollectAndStoreResources(ctx context.Context, collectId string, resourecGroupId string) []error
-	GetResourceGroup(ctx context.Context, collectId string, resourecGroupId string) (*pb.Resource, error)
-	ListResourceGroups(ctx context.Context, name string) ([]*pb.Resource, error)
+	CollectAndStoreAll(ctx context.Context, collectID string, resourceGroupNames []string, preCollectedRgs []*pb.Resource) error
+
+	GetResourceGroupWithIamPolicy(ctx context.Context, collectID string, rgName string) (*pb.Resource, error)
+	ListResourceGroups(ctx context.Context, rgNames []string) ([]*pb.Resource, error)
+	ListResourceGroupsWithIamPolicies(ctx context.Context, rgNames []string) ([]*pb.Resource, error)
 	ListResourceGroupNames(ctx context.Context) ([]string, error)
-	ListResourceGroupAdmins(ctx context.Context) (map[string]map[string]struct{}, error)
-	ListResourceGroupResources(ctx context.Context, collectId string, resourecGroup *pb.Resource) ([]*pb.Resource, []error)
+	ListResourceGroupAdmins(ctx context.Context) (ACLCache, error)
+	ListResourceGroupResources(ctx context.Context, collectID string, rgName string) ([]*pb.Resource, []error)
+	ListResourceGroupObservations(ctx context.Context, collectID string, rgName string) ([]*pb.Observation, []error)
 }

@@ -3,12 +3,12 @@ package rules
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 )
 
 func TestCheckDetectsOverbroadScope(t *testing.T) {
@@ -68,37 +68,60 @@ func TestCheckDetectsOverbroadScope(t *testing.T) {
 		},
 	}
 
-	got := TestRuleRun(t, resources, []model.Rule{NewApiKeyOverbroadScopeRule()})
+	res1 := pb.Resource{Name: "api-key-with-overbroad-scope-1",
+		Type: &pb.Resource_ApiKey{
+			ApiKey: &pb.APIKey{
+				Scopes: []string{
+					"iamcredentials.googleapis.com",
+					"storage_api",
+					"apikeys",
+				},
+			},
+		},
+		ResourceGroupName: "projects/project-0",
+		Parent:            "projects/project-0",
+	}
 
-	// Expected values are ordered lexicographically.
 	want := []*pb.Observation{
 		{
-			Name: ApiKeyOverbroadScopeRuleName,
-			Resource: &pb.Resource{
-				Name: "api-key-unrestricted-0",
+			Name:          apiKeyOverbroadScopeRuleName,
+			ResourceRef:   utils.GetResourceRef(&res1),
+			ExpectedValue: structpb.NewStringValue(""),
+			ObservedValue: structpb.NewStringValue("iamcredentials.googleapis.com"),
+			Remediation: &pb.Remediation{
+				Description:    "API key [\"api-key-with-overbroad-scope-1\"](https://console.cloud.google.com/apis/credentials/key/api-key-with-overbroad-scope-1?project=project-0) may have over-broad scope \"iamcredentials.googleapis.com\"",
+				Recommendation: "Remove scope \"iamcredentials.googleapis.com\" from API key [\"api-key-with-overbroad-scope-1\"](https://console.cloud.google.com/apis/credentials/key/api-key-with-overbroad-scope-1?project=project-0) unless it is used. [More details available in our documentation.](https://github.com/nianticlabs/modron/blob/main/docs/FINDINGS.md)",
+			},
+			Severity: pb.Severity_SEVERITY_MEDIUM,
+		},
+		{
+			Name:          apiKeyOverbroadScopeRuleName,
+			ResourceRef:   utils.GetResourceRef(&res1),
+			ExpectedValue: structpb.NewStringValue(""),
+			ObservedValue: structpb.NewStringValue("apikeys"),
+			Remediation: &pb.Remediation{
+				Description:    "API key [\"api-key-with-overbroad-scope-1\"](https://console.cloud.google.com/apis/credentials/key/api-key-with-overbroad-scope-1?project=project-0) may have over-broad scope \"apikeys\"",
+				Recommendation: "Remove scope \"apikeys\" from API key [\"api-key-with-overbroad-scope-1\"](https://console.cloud.google.com/apis/credentials/key/api-key-with-overbroad-scope-1?project=project-0) unless it is used. [More details available in our documentation.](https://github.com/nianticlabs/modron/blob/main/docs/FINDINGS.md)",
+			},
+			Severity: pb.Severity_SEVERITY_MEDIUM,
+		},
+		{
+			Name: apiKeyOverbroadScopeRuleName,
+			ResourceRef: &pb.ResourceRef{
+				Uid:           proto.String("uuid-2"),
+				GroupName:     "projects/project-0",
+				ExternalId:    proto.String("api-key-unrestricted-0"),
+				CloudPlatform: pb.CloudPlatform_GCP,
 			},
 			ExpectedValue: structpb.NewStringValue("restricted"),
 			ObservedValue: structpb.NewStringValue("unrestricted"),
-		},
-		{
-			Name: ApiKeyOverbroadScopeRuleName,
-			Resource: &pb.Resource{
-				Name: "api-key-with-overbroad-scope-1",
+			Remediation: &pb.Remediation{
+				Description:    "API key [\"api-key-unrestricted-0\"](https://console.cloud.google.com/apis/credentials/key/api-key-unrestricted-0?project=project-0) is unrestricted, which allows it to be used against any enabled GCP API",
+				Recommendation: "Restrict API key [\"api-key-unrestricted-0\"](https://console.cloud.google.com/apis/credentials/key/api-key-unrestricted-0?project=project-0) strictly to the APIs it is supposed to call. [More details available in our documentation.](https://github.com/nianticlabs/modron/blob/main/docs/FINDINGS.md)",
 			},
-			ExpectedValue: structpb.NewStringValue(""),
-			ObservedValue: structpb.NewStringValue("iamcredentials.googleapis.com"),
-		},
-		{
-			Name: ApiKeyOverbroadScopeRuleName,
-			Resource: &pb.Resource{
-				Name: "api-key-with-overbroad-scope-1",
-			},
-			ExpectedValue: structpb.NewStringValue(""),
-			ObservedValue: structpb.NewStringValue("apikeys"),
+			Severity: pb.Severity_SEVERITY_MEDIUM,
 		},
 	}
 
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
-		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
-	}
+	TestRuleRun(t, resources, []model.Rule{NewAPIKeyOverbroadScopeRule()}, want)
 }

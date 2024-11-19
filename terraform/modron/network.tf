@@ -11,18 +11,18 @@ resource "google_compute_network" "cloud_run_network" {
 resource "google_compute_region_network_endpoint_group" "grpc_web_neg" {
   name                  = "modron-grpc-web-${var.env}-endpoint"
   network_endpoint_type = "SERVERLESS"
-  region                = substr(var.zone, 0, length(var.zone) - 2)
+  region                = local.region
   cloud_run {
-    service = google_cloud_run_service.grpc_web.name
+    service = google_cloud_run_v2_service.grpc_web.name
   }
 }
 
 resource "google_compute_region_network_endpoint_group" "ui_neg" {
   name                  = "modron-ui-${var.env}-endpoint"
   network_endpoint_type = "SERVERLESS"
-  region                = substr(var.zone, 0, length(var.zone) - 2)
+  region                = local.region
   cloud_run {
-    service = google_cloud_run_service.ui.name
+    service = google_cloud_run_v2_service.ui.name
   }
 }
 
@@ -36,7 +36,7 @@ resource "google_vpc_access_connector" "connector" {
 # This is required to install packages on the SQL jump host
 resource "google_compute_router" "router" {
   name    = "sql-jump-host"
-  region  = substr(var.zone, 0, length(var.zone) - 2)
+  region  = local.region
   network = google_compute_network.cloud_run_network.id
 
   bgp {

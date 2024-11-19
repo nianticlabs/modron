@@ -1,4 +1,7 @@
+import {RequestStatus, ScanType} from "../../proto/modron_pb";
+
 export type StatusInfo = {
-    state: number
-    resourceGroups: string[]
+  state: RequestStatus
+  resourceGroups: string[]
+  scanType: ScanType
 }

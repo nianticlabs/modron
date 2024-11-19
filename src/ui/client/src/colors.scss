@@ -1,0 +1,23 @@
+@use '@angular/material' as mat;
+
+$my-primary: mat.m2-define-palette(mat.$m2-indigo-palette, 500);
+$my-accent: mat.m2-define-palette(mat.$m2-pink-palette, A200, A100, A400);
+
+$my-theme: mat.m2-define-light-theme((
+  color: (
+    primary: $my-primary,
+    accent: $my-accent,
+  ),
+  density: 0,
+));
+
+$sideNavBackground: mat.m2-get-color-from-palette($my-primary, default, 0.1);
+$sideNavButtonActiveBackground: mat.m2-get-color-from-palette($my-primary, default, 0.2);
+
+$title: #FFF;
+$secondaryText: #555;
+
+$danger: #da1e28;
+$warning: #f5a623;
+$allGood: #24a148;
+

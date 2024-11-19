@@ -1,12 +1,13 @@
 import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { NotificationExceptionFormComponent } from "./notification-exception-form.component"
-import { HttpClientTestingModule, } from "@angular/common/http/testing"
+import { provideHttpClientTesting } from "@angular/common/http/testing"
 import { AuthenticationStore } from "../state/authentication.store"
 import { NotificationStore } from "../state/notification.store"
 import { Validators } from "@angular/forms"
 import { NotificationService } from "../notification.service"
 import { NotificationException } from "../model/notification.model"
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from "@angular/material/dialog"
+import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 
 describe("NotificationExceptionFormComponent", () => {
   let component: NotificationExceptionFormComponent
@@ -15,31 +16,33 @@ describe("NotificationExceptionFormComponent", () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [NotificationExceptionFormComponent],
-      imports: [HttpClientTestingModule, MatDialogModule],
-      providers: [
+    declarations: [NotificationExceptionFormComponent],
+    imports: [MatDialogModule],
+    providers: [
         {
-          provide: AuthenticationStore,
-          useValue: {
-            user: {
-              isSignedIn: true,
-              email: "foo@bar.com",
+            provide: AuthenticationStore,
+            useValue: {
+                user: {
+                    isSignedIn: true,
+                    email: "foo@bar.com",
+                },
             },
-          },
         },
         NotificationStore,
         {
-          provide: MatDialogRef,
-          useValue: {
-            close: () => { return },
-          },
+            provide: MatDialogRef,
+            useValue: {
+                close: () => { return; },
+            },
         },
         {
-          provide: MAT_DIALOG_DATA,
-          useValue: "mock-notification-name",
+            provide: MAT_DIALOG_DATA,
+            useValue: "mock-notification-name",
         },
-      ],
-    }).compileComponents()
+        provideHttpClient(withInterceptorsFromDi()),
+        provideHttpClientTesting(),
+    ]
+}).compileComponents()
 
     service = TestBed.inject(NotificationService)
     fixture = TestBed.createComponent(NotificationExceptionFormComponent)

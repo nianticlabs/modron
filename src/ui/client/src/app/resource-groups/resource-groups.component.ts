@@ -36,8 +36,8 @@ export class ResourceGroupsComponent implements OnInit {
     return balance > 0 ? "#da1e28" : "#24a148"
   }
 
-  collectAndScan(resourceGroups: string[]): void {
-    this.store.collectAndScan$(resourceGroups).subscribe({
+  collectAndScanAll(): void {
+    this.store.collectAndScanAll$().subscribe({
       next: () =>
         this.snackBar.open("Scanning all resource groups ...", "", {
           duration: ResourceGroupsComponent.SNACKBAR_LINGER_DURATION_MS,
@@ -67,12 +67,11 @@ export class ResourceGroupsComponent implements OnInit {
     )
   }
 
-  getDate(obs: any[]): string {
-    obs as Observation[]
+  getDate(obs: Observation[]): Date | null {
     if (obs.length > 0) {
-      return obs[0].getTimestamp()?.toDate().toUTCString().slice(4)
+      return obs[0].getTimestamp()?.toDate() || null;
     }
-    return ""
+    return null
   }
 
   public updateFilterUrlParam() {

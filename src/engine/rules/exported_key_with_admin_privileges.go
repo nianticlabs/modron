@@ -5,13 +5,14 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"github.com/nianticlabs/modron/src/common"
+
 	"github.com/nianticlabs/modron/src/constants"
-	"github.com/nianticlabs/modron/src/engine"
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 )
 
 const ExportedKeyWithAdminPrivileges = "EXPORTED_KEY_WITH_ADMIN_PRIVILEGES"
@@ -41,18 +42,18 @@ func NewExportedKeyWithAdminPrivilegesRule() model.Rule {
 	return &ExportedKeyWithAdminPrivilegesRule{
 		info: model.RuleInfo{
 			Name: ExportedKeyWithAdminPrivileges,
-			AcceptedResourceTypes: []string{
-				common.ResourceServiceAccount,
+			AcceptedResourceTypes: []proto.Message{
+				&pb.ServiceAccount{},
 			},
 		},
 	}
 }
 
-func (r *ExportedKeyWithAdminPrivilegesRule) Check(ctx context.Context, rsrc *pb.Resource) ([]*pb.Observation, []error) {
+func (r *ExportedKeyWithAdminPrivilegesRule) Check(ctx context.Context, e model.Engine, rsrc *pb.Resource) ([]*pb.Observation, []error) {
 	sa := rsrc.GetServiceAccount()
-	rsrcGroup, err := engine.GetResource(ctx, rsrc.Parent)
+	rsrcGroup, err := e.GetResource(ctx, rsrc.Parent)
 	if err != nil {
-		return nil, []error{fmt.Errorf("error retrieving resource group of resource %q: %v", rsrc.Name, err)}
+		return nil, []error{fmt.Errorf("error retrieving resource group of resource %q: %w", rsrc.Name, err)}
 	}
 	policy := rsrcGroup.IamPolicy
 	hasAdminRoles := false
@@ -75,7 +76,7 @@ func (r *ExportedKeyWithAdminPrivilegesRule) Check(ctx context.Context, rsrc *pb
 			ob := &pb.Observation{
 				Uid:           uuid.NewString(),
 				Timestamp:     timestamppb.Now(),
-				Resource:      rsrc,
+				ResourceRef:   utils.GetResourceRef(rsrc),
 				Name:          r.Info().Name,
 				ExpectedValue: structpb.NewStringValue("0 keys"),
 				ObservedValue: structpb.NewStringValue(fmt.Sprintf("%v keys", nbEx)),
@@ -92,6 +93,7 @@ func (r *ExportedKeyWithAdminPrivilegesRule) Check(ctx context.Context, rsrc *pb
 						constants.ResourceWithoutProjectsPrefix(rsrcGroup.Name),
 					),
 				},
+				Severity: pb.Severity_SEVERITY_CRITICAL,
 			}
 			obs = append(obs, ob)
 		}

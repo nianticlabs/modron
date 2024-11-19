@@ -9,8 +9,8 @@ import * as proto_loader from '@grpc/proto-loader'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 class ModronMockGrpcServer {
-  private static readonly MODRON_PROTO_PATH: string = __dirname + '/../../proto/modron.proto'
-  private static readonly NOTIFICATION_PROTO_PATH: string = __dirname + '/../../proto/notification.proto'
+  private static readonly MODRON_PROTO_PATH: string = 'proto/modron.proto'
+  private static readonly NOTIFICATION_PROTO_PATH: string = 'proto/notification.proto'
   private static readonly PKG_NAME: string = ''
   private static readonly MODRON_SERVICE_NAME: string = 'ModronService'
   private static readonly NOTIFICATION_SERVICE_NAME: string = 'NotificationService'
@@ -74,6 +74,41 @@ class ModronMockGrpcServer {
 
   public async run(): Promise<void> {
     await this.initMockServer()
+  }
+
+  private generateObservations(ruleNr: number, projectName: string, amountObs?: number) {
+    let observations = [];
+    if(amountObs == undefined){
+        return;
+    }
+    for(let i = 0; i < ruleNr; i++){
+        observations.push(new this.mpb.Observation.constructor({
+            name: `obs-${ruleNr}-rsrc-${i}`,
+            timestamp: {
+                seconds: new Date().getTime() / 1000,
+                nanos: 456,
+            },
+            uid: "5cedca54-a6e0-4de5-8df5-facc533f5903--" + ruleNr,
+            remediation: this.getRemediation(),
+            resource: new this.mpb.Resource.constructor({
+                name: `resource-${i}` + "[observation" + ruleNr + "]",
+                resourceGroupName: "project" + projectName,
+                timestamp: {
+                    seconds: new Date().getTime() / 1000,
+                    nanos: 456,
+                },
+            }),
+        }));
+    }
+
+    return observations
+  }
+
+  private getRemediation() {
+    return new this.mpb.Remediation.constructor({
+      description: "The project \"projects/example\" gives the principal [\"some-account@example.iam.gserviceaccount.com\"](https://example.com) vast permissions through the role `compute.loadBalancerAdmin`. This principal is defined in another project which means that anybody with rights in that project can use it to control the resources in this one.",
+      recommendation: "Replace the principal [\"some-account@example.iam.gserviceaccount.com\"](https://example.com) controlling the project \"projects/example\" with a principal created in the project \"//cloudresourcemanager.googleapis.com/folders/12345678\" that grants it the smallest set of permissions needed to operate.",
+    })
   }
 
   private async initMockServer() {
@@ -144,29 +179,10 @@ class ModronMockGrpcServer {
                 resourceGroupName: e[2],
                 rulesObservations: [0, 1, 2, 3, 4, 5, 6].map(ruleNb => new this.mpb.RuleObservationPair.constructor({
                   rule: "observation" + ruleNb,
-                  observations: (e[1] as Array<number>).filter(ele => ele === ruleNb).map(e1 => new this.mpb.Observation.constructor({
-                    name: "observation" + e1,
-                    timestamp: {
-                      seconds: 123,
-                      nanos: 456,
-                    },
-                    uid: "5cedca54-a6e0-4de5-8df5-facc533f5903--" + e1,
-                    remediation: new this.mpb.Remediation.constructor({
-                      description: "some description [title](https://www.example.com)",
-                      recommendation: "do something [title](https://www.example.com)",
-                    }),
-                    resource: new this.mpb.Resource.constructor({
-                      name: "project" + e[0] + "[observation" + e1 + "]",
-                      resourceGroupName: "project" + e[0],
-                      timestamp: {
-                        seconds: 1273,
-                        nanos: 456,
-                      },
-                    }),
-                  })),
-                }))
+                  observations: this.generateObservations(ruleNb, e[2] as string, e[1][ruleNb]),
+                })),
+                nextPageToken: '',
               })),
-            nextPageToken: '',
           }))
         } else {
           cb(null, new this.mpb.ListObservationsResponse.constructor({
@@ -177,26 +193,7 @@ class ModronMockGrpcServer {
                 resourceGroupName: e[2],
                 rulesObservations: [0, 1, 2, 3, 4, 5, 6].map(ruleNb => new this.mpb.RuleObservationPair.constructor({
                   rule: "observation" + ruleNb,
-                  observations: (e[1] as Array<number>).filter(ele => ele === ruleNb).map(e1 => new this.mpb.Observation.constructor({
-                    name: "observation" + e1,
-                    timestamp: {
-                      seconds: new Date().getTime() / 1000,
-                      nanos: 456,
-                    },
-                    uid: "5cedca54-a6e0-4de5-8df5-facc533f5903--" + e1,
-                    remediation: new this.mpb.Remediation.constructor({
-                      description: "some description [title](https://www.example.com)",
-                      recommendation: "do something [title](https://www.example.com)",
-                    }),
-                    resource: new this.mpb.Resource.constructor({
-                      name: "project" + e[0] + "[observation" + e1 + "]",
-                      resourceGroupName: "project" + e[0],
-                      timestamp: {
-                        seconds: new Date().getTime() / 1000,
-                        nanos: 456,
-                      },
-                    }),
-                  })),
+                  observations: this.generateObservations(ruleNb, e[2] as string, e[1][ruleNb]),
                 }))
               })),
             nextPageToken: '',
@@ -255,14 +252,12 @@ await server.run()
 let sigterm = () => {
   process.stdin.resume()
 
-  var p = new Promise<void>(function (resolve, reject) {
+  return new Promise<void>(function (resolve, reject) {
     process.on('SIGTERM', function () {
       process.stdin.pause()
       resolve()
     })
-  })
-
-  return p
+  });
 }
 
 await sigterm()

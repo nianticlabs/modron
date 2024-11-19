@@ -1,0 +1,104 @@
+<mat-table
+  [dataSource]="sortedData"
+  (matSortChange)="sortData($event)"
+  matSortActive="riskScore"
+  matSortDirection="desc"
+  matSort
+>
+  <ng-container matColumnDef="riskScore">
+    <mat-header-cell *matHeaderCellDef mat-sort-header>Risk</mat-header-cell>
+    <mat-cell
+      *matCellDef="let row"
+      class="mat-cell"
+    >
+      <app-severity-indicator [severity]="r(row).getRiskScore()"/>
+    </mat-cell>
+  </ng-container>
+
+  <ng-container matColumnDef="category">
+    <mat-header-cell *matHeaderCellDef mat-sort-header>Category</mat-header-cell>
+    <mat-cell
+      *matCellDef="let row"
+      class="mat-cell"
+    >
+      <div>{{ r(row).getName() }}</div>
+    </mat-cell>
+  </ng-container>
+
+  <ng-container matColumnDef="resourceGroup">
+    <mat-header-cell *matHeaderCellDef mat-sort-header>Resource Group</mat-header-cell>
+    <mat-cell
+      *matCellDef="let row"
+      class="mat-cell"
+    >
+      <a
+        [routerLink]="['../resourcegroup', r(row).getResourceRef()?.getGroupName()?.replace('/', '-') || '']"
+      >
+        {{ (r(row).getResourceRef()?.getGroupName() || '') }}
+      </a>
+    </mat-cell>
+  </ng-container>
+
+  <ng-container matColumnDef="resource">
+    <mat-header-cell *matHeaderCellDef>Resource</mat-header-cell>
+    <mat-cell
+      *matCellDef="let row"
+      class="mat-cell"
+    >{{ r(row).getResourceRef()?.getExternalId() | parseExternalId }}
+    </mat-cell>
+  </ng-container>
+
+  <ng-container matColumnDef="shortDesc">
+    <mat-header-cell *matHeaderCellDef>Description</mat-header-cell>
+    <mat-cell
+      *matCellDef="let row"
+      class="mat-cell">
+      <p [innerHTML]="(r(row).getRemediation()?.getDescription() || '') | markdown | async"></p>
+    </mat-cell>
+  </ng-container>
+
+  <ng-container matColumnDef="observedValue">
+    <mat-header-cell *matHeaderCellDef>Observed</mat-header-cell>
+    <mat-cell
+      *matCellDef="let row"
+      class="mat-cell"
+    >
+      <p>{{ r(row).getObservedValue() | structValueToString }}</p>
+    </mat-cell>
+  </ng-container>
+
+  <ng-container matColumnDef="expectedValue">
+    <mat-header-cell *matHeaderCellDef>Expected</mat-header-cell>
+    <mat-cell
+      *matCellDef="let row"
+      class="mat-cell"
+    >
+      {{ r(row).getExpectedValue() | structValueToString }}
+    </mat-cell>
+  </ng-container>
+
+  <ng-container matColumnDef="actions">
+    <mat-header-cell *matHeaderCellDef>Actions</mat-header-cell>
+    <mat-cell
+      *matCellDef="let row"
+      class="mat-cell"
+    >
+      <app-notif-bell-button
+        [observation]="row"
+      />
+      <mat-icon
+        matTooltip="View details"
+        (click)="this.showObservationDetails(row)"
+      >open_in_full
+      </mat-icon>
+
+    </mat-cell>
+  </ng-container>
+
+  <!-- Header and Row Declarations -->
+  <mat-header-row *matHeaderRowDef="columns"></mat-header-row>
+  <mat-row
+    class="observation-row"
+    *matRowDef="let row; columns: columns"
+  ></mat-row>
+</mat-table>

@@ -5,18 +5,17 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/glog"
 	"github.com/google/uuid"
 	"golang.org/x/exp/slices"
 	"google.golang.org/api/cloudidentity/v1"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/nianticlabs/modron/src/common"
 	"github.com/nianticlabs/modron/src/constants"
-	"github.com/nianticlabs/modron/src/engine"
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 )
 
 const CrossProjectPermissionsRuleName = "CROSS_PROJECT_PERMISSIONS"
@@ -55,9 +54,9 @@ type CrossProjectPermissionsRule struct {
 }
 
 type FindingPrincipal struct {
-	account string
-	group   string
-	role    string
+	account   string
+	projectID string
+	role      string
 }
 
 func init() {
@@ -68,11 +67,12 @@ func NewCrossProjectPermissionsRule() model.Rule {
 	return &CrossProjectPermissionsRule{
 		info: model.RuleInfo{
 			Name: CrossProjectPermissionsRuleName,
-			AcceptedResourceTypes: []string{
-				common.ResourceServiceAccount,
-				common.ResourceBucket,
-				common.ResourceDatabase,
-				common.ResourceResourceGroup,
+			AcceptedResourceTypes: []proto.Message{
+				&pb.KubernetesCluster{},
+				&pb.ServiceAccount{},
+				&pb.Bucket{},
+				// &pb.Database{}, // TODO: Uncomment when we start collecting DBs IAM Policies
+				&pb.ResourceGroup{},
 			},
 		},
 		cloudIdentityService: nil,
@@ -80,148 +80,94 @@ func NewCrossProjectPermissionsRule() model.Rule {
 }
 
 func getResourceSpecificString(rsrc *pb.Resource) string {
-	switch rsrc.Type.(type) {
-	case *pb.Resource_Bucket:
-		return "storage bucket [%q](https://console.cloud.google.com/storage/browser/%s)"
-	case *pb.Resource_Database:
-		return "database [%q](https://console.cloud.google.com/spanner/instances/%s/details/databases)"
-	case *pb.Resource_ServiceAccount:
-		return "service account [%q](https://console.cloud.google.com/iam-admin/serviceaccounts?project=%s)"
-	case *pb.Resource_ResourceGroup:
-		return "project [%q](https://console.cloud.google.com/welcome?project=%s)"
-	default:
-		return ""
-	}
+	resourceLink := utils.LinkGCPResource(rsrc)
+	return fmt.Sprintf("%s [%s](%s)", resourceLink.Type, resourceLink.Name, resourceLink.URL)
 }
 
-func getRemediationByResourceType(rsrc *pb.Resource, fp *FindingPrincipal) pb.Remediation {
+func getRemediationByResourceType(rsrc *pb.Resource, fp *FindingPrincipal) *pb.Remediation {
 	resourceString := getResourceSpecificString(rsrc)
-	var throughGroup string
-	var recommendation string
-	var recommendationTemplate string
-	var linkContent string
-	switch rsrc.Type.(type) {
-	case *pb.Resource_Bucket, *pb.Resource_Database:
-		linkContent = rsrc.Name
-	case *pb.Resource_ServiceAccount, *pb.Resource_ResourceGroup:
-		linkContent = constants.ResourceWithoutProjectsPrefix(rsrc.Name)
-	}
-	if fp.group != "" {
-		throughGroup = fmt.Sprintf(". The user is part of the group %s", fp.group)
-		recommendationTemplate =
-			"Remove the account %q from the group %q, remove the group from the " +
-				resourceString +
-				" or replace the principal %q with a principal created in the project %q that grants it the **smallest set of permissions** needed to operate"
-		recommendation = fmt.Sprintf(recommendationTemplate,
-			fp.account,
-			fp.group,
-			rsrc.Name,
-			linkContent,
-			fp.account,
-			constants.ResourceWithoutProjectsPrefix(rsrc.Parent),
-		)
-	} else {
-		throughGroup = ""
-		recommendationTemplate =
-			"Replace the principal %q controlling the " +
-				resourceString +
-				" with a principal created in the project %q that grants it the **smallest set of permissions** needed to operate"
-		recommendation = fmt.Sprintf(
-			recommendationTemplate,
-			fp.account,
-			rsrc.Name,
-			linkContent,
-			constants.ResourceWithoutProjectsPrefix(rsrc.Parent),
-		)
-	}
+	principalString := getResourceSpecificString(&pb.Resource{
+		Name:              fp.account,
+		ResourceGroupName: constants.ResourceWithProjectsPrefix(fp.projectID),
+		Type:              &pb.Resource_ServiceAccount{},
+	})
+	recommendation := fmt.Sprintf(
+		"Replace the %s controlling %s with a principal created in the project %q that grants it the **smallest set of permissions** needed to operate.",
+		principalString,
+		resourceString,
+		rsrc.ResourceGroupName,
+	)
 	switch rsrc.Type.(type) {
 	case *pb.Resource_Bucket, *pb.Resource_Database, *pb.Resource_ServiceAccount:
-		descriptionTemplate := "The " + resourceString + " is controlled by the principal %q with role %s defined in another project%s"
-		return pb.Remediation{
+		return &pb.Remediation{
 			Description: fmt.Sprintf(
-				descriptionTemplate,
-				rsrc.Name,
-				linkContent,
-				fp.account,
+				"The %s is controlled by the %s with role `%s` defined in project %q",
+				resourceString,
+				principalString,
 				fp.role,
-				throughGroup,
+				fp.projectID,
 			),
 			Recommendation: recommendation,
 		}
 	case *pb.Resource_ResourceGroup:
-		descriptionTemplate :=
-			"The " +
-				resourceString +
-				" gives the principal %q vast permissions through the role %s%s This principal is defined in another project which means that anybody with rights in that project can use it to control the resources in this one"
-		return pb.Remediation{
+		return &pb.Remediation{
 			Description: fmt.Sprintf(
-				descriptionTemplate,
-				rsrc.Name,
-				linkContent,
-				fp.account,
+				"The %s gives the %s vast permissions through the role `%s`.\n"+
+					"This principal is defined in project %q, which means that anybody with rights in that project can use it to control the resources in this one",
+				resourceString,
+				principalString,
 				fp.role,
-				"."+throughGroup,
+				fp.projectID,
 			),
 			Recommendation: recommendation,
 		}
 	default:
-		return pb.Remediation{}
+		return &pb.Remediation{}
 	}
 }
 
-func isCrossProjectServiceAccount(ctx context.Context, user string, rsrc *pb.Resource) (bool, error) {
-	svcAccnt := strings.Split(user, "@")
+func isCrossProjectServiceAccount(user string, sourceProjectID string) (bool, string) {
 	if user == "allUsers" || user == "allAuthenticatedUsers" {
-		return false, nil
+		return false, ""
 	}
-	if len(svcAccnt) < 2 {
-		glog.Warningf("unknown service account %q", user)
-		return false, nil
+	svcAccnt := strings.Split(user, "@")
+	if len(svcAccnt) < 2 { //nolint:mnd
+		log.Warnf("unknown service account %q", user)
+		return false, ""
 	}
-	_, contained := googleManagedAccountSuffixes[svcAccnt[1]]
-	var resourceId string
-	switch rsrc.Type.(type) { // ResourceGroup is only available on a Resource_ResourceGroup and not on others
-	case *pb.Resource_ResourceGroup:
-		resourceId = rsrc.GetResourceGroup().Identifier
-	default:
-		parent, err := engine.GetResource(ctx, rsrc.Parent)
-		if err != nil {
-			err = fmt.Errorf("could not get parent %v of resource %v", rsrc.Parent, rsrc.Name)
-			glog.Error(err)
-			return false, err
-		}
-		resourceId = parent.GetResourceGroup().Identifier
+	if !strings.HasSuffix(user, "iam.gserviceaccount.com") {
+		return false, ""
+	}
+	saProject := utils.GetGCPProjectFromSAEmail(user)
+	if saProject == "" {
+		log.Warnf("could not get project from service account %q", user)
+		return false, ""
 	}
 
-	return strings.HasSuffix(user, ".gserviceaccount.com") && // It should be a service account
-		!strings.HasPrefix(strings.TrimPrefix(user, constants.GCPServiceAccountPrefix), resourceId) && // Should not be an account with the project prefix
-		!strings.Contains(user, constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName)) && // The service account was created in another project
-		!strings.HasSuffix(user, "@cloudservices.gserviceaccount.com") &&
-		!contained, nil
+	if utils.IsGCPServiceAccountProject(saProject) {
+		return false, ""
+	}
+	if saProject == sourceProjectID {
+		return false, ""
+	}
+	return true, saProject
 }
 
 func (r *CrossProjectPermissionsRule) createObservation(rsrc *pb.Resource, fp *FindingPrincipal) *pb.Observation {
-	remediation := getRemediationByResourceType(rsrc, fp)
-	observed_value := structpb.NewStringValue(fmt.Sprintf("%q with role %s", fp.account, fp.role))
-	if fp.group != "" {
-		observed_value = structpb.NewStringValue(fmt.Sprintf("%q > %q", fp.group, fp.account))
-	}
-	ob := &pb.Observation{
+	return &pb.Observation{
 		Uid:           uuid.NewString(),
 		Timestamp:     timestamppb.Now(),
-		Resource:      rsrc,
+		ResourceRef:   utils.GetResourceRef(rsrc),
 		Name:          r.Info().Name,
-		ExpectedValue: structpb.NewStringValue(""),
-		ObservedValue: observed_value,
-		Remediation:   &remediation,
+		ExpectedValue: structpb.NewStringValue(strings.TrimPrefix(rsrc.ResourceGroupName, constants.GCPProjectsNamePrefix)),
+		ObservedValue: structpb.NewStringValue(fp.projectID),
+		Remediation:   getRemediationByResourceType(rsrc, fp),
+		Severity:      pb.Severity_SEVERITY_MEDIUM,
 	}
-
-	return ob
 }
 
-func (r *CrossProjectPermissionsRule) Check(ctx context.Context, rsrc *pb.Resource) (obs []*pb.Observation, errs []error) {
+func (r *CrossProjectPermissionsRule) Check(_ context.Context, _ model.Engine, rsrc *pb.Resource) (obs []*pb.Observation, errs []error) {
 	policy := rsrc.IamPolicy
-
 	if policy == nil {
 		return nil, []error{fmt.Errorf("resource %s has no IAM policy", rsrc.Name)}
 	}
@@ -229,19 +175,20 @@ func (r *CrossProjectPermissionsRule) Check(ctx context.Context, rsrc *pb.Resour
 	for _, perm := range policy.Permissions {
 		if slices.Contains(rolesToWatch, perm.Role) {
 			for _, principal := range perm.GetPrincipals() {
-				// TODO: Check for cross project users in groups
-				shouldFlag, err := isCrossProjectServiceAccount(ctx, principal, rsrc)
-				if err != nil {
-					errs = append(errs, err)
-					continue
-				}
-				if shouldFlag {
-					obs = append(obs, r.createObservation(rsrc, &FindingPrincipal{principal, "", perm.Role}))
+				// TODO: Check for cross project service accounts in groups
+				xProjectSA, projectID := isCrossProjectServiceAccount(
+					principal,
+					strings.TrimPrefix(
+						rsrc.ResourceGroupName,
+						constants.GCPProjectsNamePrefix,
+					),
+				)
+				if xProjectSA {
+					obs = append(obs, r.createObservation(rsrc, &FindingPrincipal{principal, projectID, perm.Role}))
 				}
 			}
 		}
 	}
-
 	return obs, errs
 }
 

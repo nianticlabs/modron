@@ -62,7 +62,7 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: 10.246.6.2 # you may need to replace this with your container/machine IP.
+                      address: mock-grpc-server
                       port_value: 4202
 
 admin:

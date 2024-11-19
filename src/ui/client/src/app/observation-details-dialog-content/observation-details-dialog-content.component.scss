@@ -1,0 +1,69 @@
+.dialog-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+
+  h1, h2, h3, h4, h5, h6 {
+    margin-bottom: 0.5em;
+  }
+
+  p {
+    margin-top: 0;
+  }
+}
+
+.observation-details {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  margin: 16px;
+  row-gap: 4px;
+
+  p {
+    margin: 0;
+  }
+
+  .hdr {
+    font-weight: bold;
+  }
+}
+
+.risk-score {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  column-gap: 8px;
+  align-items: center;
+  width: 100%;
+
+  .main-indicator {
+    justify-self: center;
+  }
+
+  .severity-impact-container {
+    display: grid;
+    align-items: start;
+    row-gap: 18px;
+    grid-template-columns: 80px 1fr;
+    margin-top: 1em;
+
+    .indicator {
+      justify-self: center;
+    }
+
+    div.expl {
+      h1,h2,h3,h4,h5,h6 {
+        margin: 0 0 0.5em;
+      }
+
+      code {
+        background-color: #eeeeee;
+        padding: 3px;
+      }
+
+    }
+  }
+}
+
+.short-risk-score-description {
+  margin-top: 1em;
+  margin-bottom: 1em;
+}

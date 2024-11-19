@@ -1,0 +1,29 @@
+<div class="sidenav">
+  <div class="top-spacer">
+
+  </div>
+  <div class="menu-icon-container">
+    <mat-icon
+      class="menu-icon"
+      fontIcon="menu"
+      *ngIf="false"
+    />
+  </div>
+
+  <div class="nav-items">
+    <div class="nav-item"
+      [routerLink]="item.link"
+         [ngClass]="{'active': router.url === item.link}"
+      *ngFor="let item of navItems"
+    >
+      <mat-icon
+        class="nav-item-icon"
+        matRipple
+        [fontIcon]="item.icon"
+      />
+      <div class="nav-item-text">
+        {{ item.name }}
+      </div>
+    </div>
+  </div>
+</div>

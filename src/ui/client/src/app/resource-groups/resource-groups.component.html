@@ -1,30 +1,28 @@
 <div class="app-resourcegroup">
   <div *ngIf="this.store.observations$ | async; let obs">
     <div class="app-resourcegroup-header">
-      <h1>Resource groups |</h1>
-      <div class="app-resourcegroup-header-filter">
-        <h2>Filter</h2>
-        <input type="text" [(ngModel)]="searchText" (input)="updateFilterUrlParam()" />
-        <input type="checkbox" id="removeNoObs" name="removeNoObs" [(ngModel)]="removeNoObs" /><label for="removeNoObs">
-          <h2>only w/ observations</h2>
-        </label>
-        <div>
-          <h2>
-            |
-            {{
-            (
-            obs
-            | mapFlatRules
-            | keyvalue
-            | filterKeyValue: searchText
-            | filterNoObservations: removeNoObs
-            ).length
-            }}
-            matching groups
-          </h2>
-        </div>
-      </div>
+      <h2>Resource Groups</h2>
     </div>
+    <div class="app-resourcegroup-filter">
+      <mat-form-field>
+        <mat-label>Filter</mat-label>
+        <input (input)="updateFilterUrlParam()" [(ngModel)]="searchText" matInput>
+      </mat-form-field>
+      <mat-checkbox [(ngModel)]="removeNoObs">Only with observations</mat-checkbox>
+    </div>
+
+    <h4 class="matching-groups-count">
+      {{
+      (
+        obs
+          | mapFlatRules
+          | keyvalue
+          | filterKeyValue: searchText
+          | filterNoObservations: removeNoObs
+      ).length
+      }}
+      matching groups
+    </h4>
     <div *ngIf="
         obs
           | mapFlatRules
@@ -33,43 +31,58 @@
           | filterNoObservations: removeNoObs;
         let obsKvs
       ">
-      <div style="overflow: scroll; height: 80vh">
-        <div class="app-resourcegroup-generalinfo inline-between">
-          <div>
-            <div class="inline">
-              <h1 [ngStyle]="{ color: getColor(obsKvs | invalidProjectNb) }">
-                {{ obsKvs | invalidProjectNb }}
-              </h1>
-              <h2>groups with dangerous observations</h2>
-            </div>
-            <h2>{{ obsKvs | obsNb }} total observations to solve</h2>
+
+      <div class="observations-top-bar">
+        <div class="observations-result">
+          <div class="observation-type danger">
+            <mat-icon class="observation-icon">error</mat-icon>
+            <div class="observation-count">{{ obsKvs | invalidProjectNb }}</div>
+            <div class="observation-description">groups with important observations</div>
           </div>
-          <div class="buttons inline">
-            <div *ngIf="(this.isScanRunning$() | async) === false; else scanning">
-              <div class="button" (click)="this.collectAndScan([])">
-                <svg style="width: 24px; height: 24px" viewBox="0 0 24 24">
-                  <path fill="currentColor"
-                    d="M17 22V20H20V17H22V20.5C22 20.89 21.84 21.24 21.54 21.54C21.24 21.84 20.89 22 20.5 22H17M7 22H3.5C3.11 22 2.76 21.84 2.46 21.54C2.16 21.24 2 20.89 2 20.5V17H4V20H7V22M17 2H20.5C20.89 2 21.24 2.16 21.54 2.46C21.84 2.76 22 3.11 22 3.5V7H20V4H17V2M7 2V4H4V7H2V3.5C2 3.11 2.16 2.76 2.46 2.46C2.76 2.16 3.11 2 3.5 2H7M10.5 6C13 6 15 8 15 10.5C15 11.38 14.75 12.2 14.31 12.9L17.57 16.16L16.16 17.57L12.9 14.31C12.2 14.75 11.38 15 10.5 15C8 15 6 13 6 10.5C6 8 8 6 10.5 6M10.5 8C9.12 8 8 9.12 8 10.5C8 11.88 9.12 13 10.5 13C11.88 13 13 11.88 13 10.5C13 9.12 11.88 8 10.5 8Z" />
-                </svg>
-                <h2>Scan all</h2>
-              </div>
-            </div>
-            <ng-template #scanning>
-              <div class="button">
-                <svg style="width: 24px; height: 24px" viewBox="0 0 24 24">
-                  <path fill="currentColor"
-                    d="M17 22V20H20V17H22V20.5C22 20.89 21.84 21.24 21.54 21.54C21.24 21.84 20.89 22 20.5 22H17M7 22H3.5C3.11 22 2.76 21.84 2.46 21.54C2.16 21.24 2 20.89 2 20.5V17H4V20H7V22M17 2H20.5C20.89 2 21.24 2.16 21.54 2.46C21.84 2.76 22 3.11 22 3.5V7H20V4H17V2M7 2V4H4V7H2V3.5C2 3.11 2.16 2.76 2.46 2.46C2.76 2.16 3.11 2 3.5 2H7M10.5 6C13 6 15 8 15 10.5C15 11.38 14.75 12.2 14.31 12.9L17.57 16.16L16.16 17.57L12.9 14.31C12.2 14.75 11.38 15 10.5 15C8 15 6 13 6 10.5C6 8 8 6 10.5 6M10.5 8C9.12 8 8 9.12 8 10.5C8 11.88 9.12 13 10.5 13C11.88 13 13 11.88 13 10.5C13 9.12 11.88 8 10.5 8Z" />
-                </svg>
-                <h2>Scanning ...</h2>
-              </div>
-            </ng-template>
+
+          <div class="observation-type warn">
+            <mat-icon class="observation-icon">warning</mat-icon>
+            <div class="observation-count">{{ obsKvs | obsNb }}</div>
+            <div class="observation-description">total observations to solve</div>
           </div>
         </div>
+        <div class="buttons">
+          <div *ngIf="(this.isScanRunning$() | async) === false; else scanning">
+            <button
+              mat-raised-button
+              color="primary"
+              class="scan-all-rgs-button"
+              (click)="this.collectAndScanAll()"
+            >
+              <mat-icon fontSet="material-symbols-outlined">search_check_2</mat-icon>
+              <span>SCAN ALL</span>
+            </button>
+          </div>
+          <ng-template #scanning>
+            <button
+              mat-raised-button
+              color="primary"
+              disabled="true"
+              class="scan-all-rgs-button"
+            >
+              <mat-icon fontSet="material-symbols-outlined">search_check_2</mat-icon>
+              SCANNING...
+            </button>
+          </ng-template>
+        </div>
+      </div>
+      <div>
         <div *ngIf="obs.size > 0; else loadingBars">
           <div class="app-resourcegroup-projects">
             <div *ngFor="let obsKv of obsKvs">
-              <app-resource-group [routerLink]="['../resourcegroup', obsKv.key.replace('/', '-')]" [name]="obsKv.key"
-                [lastScanDate]="this.getDate(obsKv.value)" [observationCount]="obsKv.value.length"></app-resource-group>
+              <app-resource-group
+                [routerLink]="['../resourcegroup', obsKv.key.replace('/', '-')]" [name]="obsKv.key"
+                [lastScanDate]="this.getDate(obsKv.value)"
+                [observationCount]="obsKv.value.length"
+                [observationBySeverity]="obsKv.value | mapByRiskScore"
+              >
+
+              </app-resource-group>
             </div>
           </div>
         </div>

@@ -5,7 +5,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
 )
 
 type StorageFilter struct {
@@ -25,8 +25,9 @@ type Storage interface {
 	ListResources(ctx context.Context, filter StorageFilter) ([]*pb.Resource, error)
 	BatchCreateObservations(ctx context.Context, observations []*pb.Observation) ([]*pb.Observation, error)
 	ListObservations(ctx context.Context, filter StorageFilter) ([]*pb.Observation, error)
+	GetChildrenOfResource(ctx context.Context, collectID string, parentResourceName string, resourceType *string) (map[string]*pb.RecursiveResource, error)
 
-	AddOperationLog(ctx context.Context, ops []Operation) error
+	AddOperationLog(ctx context.Context, ops []*pb.Operation) error
 	FlushOpsLog(ctx context.Context) error
 	PurgeIncompleteOperations(ctx context.Context) error
 }

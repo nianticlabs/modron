@@ -3,10 +3,10 @@
 module "modron" {
   source = "../modron"
 
-  domain  = "hosted.at.example.com"
+  domain  = "modron-dev.example.com"
   env     = "dev"
   org_id  = "GCP_ORGID"
-  project = "GCP_PROJECT_NAME-dev"
+  project = "my-modron-dev"
   zone    = "GCP_ZONE"
 
   modron_admins = [
@@ -18,4 +18,8 @@ module "modron" {
   project_admins = [
     "group:modron-project-admins@example.com"
   ]
+  docker_registry = "mirror.gcr.io"
+  notification_system = "https://notification-system.example.com"
+  notification_system_client_id = "client-id"
+  org_suffix = "@example.com"
 }

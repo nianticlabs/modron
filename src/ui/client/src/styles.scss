@@ -1,10 +1,14 @@
+@use '@angular/material' as mat;
+@import '@material-symbols/font-400';
+@import 'colors.scss';
+
 /* You can add global styles to this file, and also import other style files */
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans&display=swap');
-@import '@angular/material/prebuilt-themes/deeppurple-amber.css';
+
+@include mat.all-component-themes($my-theme);
 
 body {
     font-family: 'IBM Plex Sans', sans-serif;
-    overflow: hidden;
     margin: 0;
     height: 100%
 }
@@ -23,4 +27,20 @@ button:active {
 input {
     border: none;
     background-color: rgb(249, 249, 249);
+}
+
+/*
+  Styles for dynamic elements
+*/
+.mat-column-shortDesc > p{
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.markdown-content {
+  p {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
 }

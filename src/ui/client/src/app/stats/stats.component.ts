@@ -1,10 +1,11 @@
-import { KeyValue } from "@angular/common"
-import { ChangeDetectionStrategy, Component } from "@angular/core"
-import { ActivatedRoute } from "@angular/router"
-import { ModronStore } from "../state/modron.store"
-import { StatsService } from "../stats.service"
+import {KeyValue} from "@angular/common"
+import {ChangeDetectionStrategy, Component} from "@angular/core"
+import {ActivatedRoute} from "@angular/router"
+import {ModronStore} from "../state/modron.store"
+import {StatsService} from "../stats.service"
 
-import * as pb from "src/proto/modron_pb"
+import * as pb from "../../proto/modron_pb"
+import {StructValueToStringPipe} from "../filter.pipe";
 
 @Component({
   selector: "app-stats",
@@ -13,21 +14,10 @@ import * as pb from "src/proto/modron_pb"
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class StatsComponent {
-  constructor(public store: ModronStore, public stats: StatsService, private route: ActivatedRoute) { }
-
-  displaySearchRules: Map<string, boolean> = new Map<string, boolean>();
-
-  toggleSearch(rule: string): void {
-    if (this.displaySearchRules.has(rule)) {
-      this.displaySearchRules.set(
-        rule,
-        !(this.displaySearchRules.get(rule) as boolean)
-      )
-    } else {
-      this.displaySearchRules.set(rule, true)
-    }
+  constructor(public store: ModronStore, public stats: StatsService, private route: ActivatedRoute) {
   }
 
+  displaySearchRules: Map<string, boolean> = new Map<string, boolean>();
   mapByType(
     obs: Map<string, Map<string, pb.Observation[]>>
   ): Map<string, pb.Observation[]> {
@@ -43,34 +33,31 @@ export class StatsComponent {
     return obsByType
   }
 
-  exportCsvMap(data: Map<string, number>, filename: string) {
-    const csvData = Array.from(
-      data,
-      ([k, v]) => `${k.replace(/,/g, "")},${v}`
-    ).reduce((prev, curr) => `${prev}\n${curr}`)
-    this, this.exportCsv(csvData, filename)
-  }
-
   exportCsvObs(obs: pb.Observation[], filename: string) {
-    const header = "resource-name,resource-group,observed-value,scan-date\n"
-    const data = obs.map(
-      (v) =>
-        `${v.getResource()?.getName()},${v
-          .getResource()
-          ?.getResourceGroupName().replace("projects/", "")},${v.getObservedValue()},'${v
-            .getTimestamp()
-            ?.toDate()
-            .toUTCString()}'`
-    )
-    this,
+    const rows: string[][] = [
+      ["resource-name", "resource-group", "expected-value", "observed-value", "scan-date"]
+    ]
+    const obsRows: string[][] = obs.map(
+      (v) => {
+        return [
+          v.getResourceRef()?.getExternalId(),
+          v.getResourceRef()?.getGroupName().replace("projects/", ""),
+          StructValueToStringPipe.prototype.transform(v.getExpectedValue()),
+          StructValueToStringPipe.prototype.transform(v.getObservedValue()),
+          v.getTimestamp()?.toDate().toUTCString()
+        ] as string[]
+      }
+      )
+    rows.push(...obsRows)
+    obsRows.length = 0
       this.exportCsv(
-        header + data.reduce((prev, curr) => `${prev}\n${curr}`),
+        rows.map((v)=>v.join(",")).join("\n"),
         filename
       )
   }
 
   exportCsv(data: string, name: string): void {
-    const blob = new Blob([data], { type: "text/csv" })
+    const blob = new Blob([data], {type: "text/csv;charset=utf-8"})
     const url = window.URL.createObjectURL(blob)
     const filename = name + ".csv"
 

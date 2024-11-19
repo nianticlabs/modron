@@ -1,7 +1,7 @@
-FROM cypress/base:18.16.1
+FROM cypress/base:20.9.0
 WORKDIR /app
-COPY package.json .
-COPY package-lock.json .
+COPY ./src/ui/client/package.json .
+COPY ./src/ui/client/package-lock.json .
 ENV CI=1
 RUN npm ci
 RUN npx cypress verify

@@ -11,32 +11,85 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "./pb";
+import "k8s.io/api/core/v1/generated.proto";
+import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
 
-message ExportedCredentials {
+option go_package = "./";
+
+message APIKey {repeated string scopes = 1;}
+
+// TODO: Consider adding the following:
+// - Object versioning policy
+message Bucket {
+  // Object retention policy.
+  message RetentionPolicy {
+    // The duration for which objects in the bucket need to be retained.
+    google.protobuf.Duration period = 1;
+    // If true, the policy cannot be modified.
+    bool is_locked = 2;
+  }
+  // Server Side Encryption (SSE) policy.
+  message EncryptionPolicy {
+    // If true, SSE is enabled for the bucket. Note that SSE is always enabled
+    // in GCP.
+    bool is_enabled = 1;
+    // If true, a Customer-Managed Key (CMK) is used to encrypt objects in the
+    // bucket instead of a default key provided by a platform Key Management
+    // Service (KMS).
+    bool is_key_customer_managed = 2;
+  }
+  enum AccessType {
+    ACCESS_UNKNOWN = 0;
+    PRIVATE = 1;
+    PUBLIC = 2;
+  }
+  enum AccessControlType {
+    ACCESS_CONTROL_UNKNOWN = 0;
+    NON_UNIFORM = 1;
+    UNIFORM = 2;
+  }
   google.protobuf.Timestamp creation_date = 1;
-  google.protobuf.Timestamp expiration_date = 2;
-  google.protobuf.Timestamp last_usage = 3;
+  // The retention policy for objects in the bucket.
+  optional RetentionPolicy retention_policy = 2;
+  // The SSE policy for the bucket.
+  optional EncryptionPolicy encryption_policy = 3;
+  // If true, the bucket is publicly accessible.
+  AccessType access_type = 4;
+  // If true, Access Control Lists (ACLs) are enabled for the bucket. In GCP,
+  // this entails that uniform bucket-level access is disabled.
+  AccessControlType access_control_type = 5;
 }
 
-message VmInstance {
-  string public_ip = 1;
-  string private_ip = 2;
-  // ServiceAccount.Name
-  string identity = 3;
-}
+message Certificate {
+  enum Type {
+    UNKNOWN = 0;
+    // Certificate managed by the user and imported into the platform.
+    IMPORTED = 1;
+    // Certificate managed by the platform.
+    MANAGED = 2;
+  }
+  Type type = 1;
 
-message Network {
-  repeated string ips = 1;
-  bool gcp_private_google_access_v4 = 2;
-}
+  // Fully-qualified domain name bound to the certificate.
+  string domain_name = 2;
 
-message KubernetesCluster {
-  repeated string master_authorized_networks = 1;
-  bool private_cluster = 2;
-  string master_version = 3;
-  string nodes_version = 4;
-  string location = 5;
+  // The list of alternative domain names bound to the certificate.
+  // See https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.6.
+  repeated string subject_alternative_names = 3;
+
+  google.protobuf.Timestamp creation_date = 4;
+  google.protobuf.Timestamp expiration_date = 5;
+
+  // The name of the certificate authority that issued the certificate.
+  string issuer = 6;
+
+  // The algorithm that was used by the issuer to sign the certificate.
+  string signature_algorithm = 7;
+
+  // The chain starts with the leaf certificate and continues with the
+  // remaining endorsing certificates in the chain of trust, if any.
+  // See https://datatracker.ietf.org/doc/html/rfc1421.html.
+  string pem_certificate_chain = 8;
 }
 
 message Database {
@@ -94,6 +147,12 @@ message Database {
   bool is_public = 12;
 }
 
+message ExportedCredentials {
+  google.protobuf.Timestamp creation_date = 1;
+  google.protobuf.Timestamp expiration_date = 2;
+  google.protobuf.Timestamp last_usage = 3;
+}
+
 message IamGroup {
 
   message EntityKey {
@@ -144,59 +203,281 @@ message IamGroup {
   optional DynamicGroupMetadata dynamic_group_metadata = 9;
 }
 
-// TODO: Consider adding the following:
-// - Object versioning policy
-message Bucket {
-  // Object retention policy.
-  message RetentionPolicy {
-    // The duration for which objects in the bucket need to be retained.
-    google.protobuf.Duration period = 1;
-    // If true, the policy cannot be modified.
-    bool is_locked = 2;
-  }
-  // Server Side Encryption (SSE) policy.
-  message EncryptionPolicy {
-    // If true, SSE is enabled for the bucket. Note that SSE is always enabled
-    // in GCP.
-    bool is_enabled = 1;
-    // If true, a Customer-Managed Key (CMK) is used to encrypt objects in the
-    // bucket instead of a default key provided by a platform Key Management
-    // Service (KMS).
-    bool is_key_customer_managed = 2;
-  }
-  enum AccessType {
-    ACCESS_UNKNOWN = 0;
-    PRIVATE = 1;
-    PUBLIC = 2;
-  }
-  enum AccessControlType {
-    ACCESS_CONTROL_UNKNOWN = 0;
-    NON_UNIFORM = 1;
-    UNIFORM = 2;
-  }
-  google.protobuf.Timestamp creation_date = 1;
-  // The retention policy for objects in the bucket.
-  optional RetentionPolicy retention_policy = 2;
-  // The SSE policy for the bucket.
-  optional EncryptionPolicy encryption_policy = 3;
-  // If true, the bucket is publicly accessible.
-  AccessType access_type = 4;
-  // If true, Access Control Lists (ACLs) are enabled for the bucket. In GCP,
-  // this entails that uniform bucket-level access is disabled.
-  AccessControlType access_control_type = 5;
+message IamPolicy {
+  // Resource this IAM policy is attached to.
+  Resource resource = 1;
+  repeated Permission permissions = 2;
 }
 
-message APIKey { repeated string scopes = 1; }
+message KubernetesCluster {
+  repeated string master_authorized_networks = 1;
+  bool private_cluster = 2;
+  string master_version = 3;
+  string nodes_version = 4;
+  string location = 5;
+
+  message Security {
+    enum VulnScanning {
+      /*
+        This enum is used to represent whether Vulnerability Scanning is enabled in the Kubernetes cluster.
+        Some Cloud Providers provide an option to do scanning at the cluster level (e.g: GCP w/ GKE), others
+        provide it at the registry level (e.g: AWS ECR image scanning, Azure Defender for Containers).
+
+        This enum is purely related to the scanning capabilities at the cluster level.
+        We consider "BASIC" the bare minimum check provided by the cloud provider, this is for example a check
+        for OS vulnerabilities in the container image.
+        We consider "ADVANCED" to be a more in-depth check of the container image, for example by also scanning
+        dependencies (e.g: Go dependencies) for known vulnerabilities.
+
+        GCP uses the "Standard" (here BASIC) and "Enterprise" (here ADVANCED) tiers for this.
+        If a cloud provider has more than these tiers, we consider everything that is not the maximum tier to be "BASIC".
+        Of course we can extend this enum if needed, but for the moment the current distinction should be enough.
+
+        AWS: https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-scanning.html (not exactly the same, registry-level)
+        GCP: https://cloud.google.com/kubernetes-engine/docs/how-to/security-posture-vulnerability-scanning#vuln-scanning-tiers
+        Azure: https://learn.microsoft.com/en-us/azure/defender-for-cloud/defender-for-containers-enable or https://learn.microsoft.com/en-us/azure/defender-for-cloud/support-matrix-defender-for-containers#vulnerability-assessment
+       */
+      VULN_SCAN_UNKNOWN = 0;
+      VULN_SCAN_DISABLED = 1;
+      VULN_SCAN_BASIC = 2; // GCP: Standard, AWS: Basic
+      VULN_SCAN_ADVANCED = 3; // GCP: Enterprise, AWS: Enhanced
+    }
+
+    VulnScanning vulnerability_scanning = 1;
+  }
+
+  Security security = 6;
+}
+
+message LoadBalancer {
+  enum Type {
+    UNKNOWN_TYPE = 0;
+    // An external load balancer exposes internal resources on the internet.
+    EXTERNAL = 1;
+    INTERNAL = 2;
+  }
+  Type type = 1;
+  repeated Certificate certificates = 2;
+  SslPolicy sslPolicy = 3;
+  IAP iap = 4;
+}
+
+message IAP {
+  bool enabled = 1;
+  string cliend_id = 2;
+}
+
+message Namespace {
+  string cluster = 1;
+  google.protobuf.Timestamp creation_time = 2;
+}
+
+message Network {
+  repeated string ips = 1;
+  bool gcp_private_google_access_v4 = 2;
+}
+
+message Operation {
+  string id = 1;
+  string resource_group = 2;
+  string type = 3;
+  google.protobuf.Timestamp status_time = 4;
+  Status status = 5;
+  string reason = 6;
+
+  enum Status {
+    UNKNOWN = 0;
+    STARTED = 1;
+    CANCELLED = 2;
+    COMPLETED = 3;
+    FAILED = 4;
+  }
+}
+
+message Observation {
+  enum Category {
+    CATEGORY_UNKNOWN = 0;
+    CATEGORY_VULNERABILITY = 1;
+    CATEGORY_MISCONFIGURATION = 2;
+    CATEGORY_TOXIC_COMBINATION = 3;
+  }
+
+  enum Source {
+    SOURCE_UNKNOWN = 0;
+    SOURCE_MODRON = 1;
+    SOURCE_SCC = 2;
+  }
+
+
+  string uid = 1;
+  // The identifier of the scan that detected this observation.
+  // As we can have observations created at the "collection" phase, this field might be empty and the scan_uid
+  // field will be populated instead.
+  optional string scan_uid = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  Resource deprecated_resource = 4; // Deprecated, we have the resource in the DB already and duplicating it here is useless
+  // Human readable name of the observation.
+  string name = 5;
+  // Value found in the configuration that causes the issue.
+  google.protobuf.Value expected_value = 6;
+  google.protobuf.Value observed_value = 7;
+  Remediation remediation = 8;
+
+  // DATABASE FIELDS
+  // ----------------------------
+  // These fields will be stored as columns in the DB or will be populated by the DB
+  ResourceRef resource_ref = 9;
+  // When observations are fetched from an external API, we do that at the collection phase, which is why we
+  // store here a collection_id.
+  optional string collection_id = 10;
+  // An ID that can be used in the external system (source) to identify this observation
+  optional string external_id = 11;
+  // Source defines where the observation comes from
+  Source source = 12;
+  Severity risk_score = 13;
+  Category category = 14;
+
+  Severity severity = 15;
+  Impact impact = 16;
+  // impact_reason defines why we've attributed this impact to the observation
+  string impact_reason = 17;
+}
+
+enum Severity {
+  SEVERITY_UNKNOWN = 0;
+  SEVERITY_INFO = 1;
+  SEVERITY_LOW = 2;
+  SEVERITY_MEDIUM = 3;
+  SEVERITY_HIGH = 4;
+  SEVERITY_CRITICAL = 5;
+}
+
+message ResourceRef {
+  optional string uid = 1; // This is the UUID of the resource, as stored in the Modron DB
+  string group_name = 2; // This is the ResourceGroupName identifier
+
+  // This is the identifier used by the cloud platform to uniquely identify the resource, for example
+  //container.googleapis.com/projects/modron-test/locations/us-central1/clusters/modron-test-cluster/k8s/namespaces/modron-test-namespace
+  optional string external_id = 3;
+
+  // This is the cloud platform, for example "GCP" or "AWS"
+  CloudPlatform cloud_platform = 4;
+}
+
+enum CloudPlatform {
+  PLATFORM_UNKNOWN = 0;
+  GCP = 1;
+  AWS = 2;
+  AZURE = 3;
+}
+
+enum Impact {
+  IMPACT_UNKNOWN = 0;
+  IMPACT_LOW = 1;
+  IMPACT_MEDIUM = 2;
+  IMPACT_HIGH = 3;
+}
 
 message Permission {
   string role = 1;
   repeated string principals = 2;
 }
 
-message IamPolicy {
-  // Resource this IAM policy is attached to.
-  Resource resource = 1;
-  repeated Permission permissions = 2;
+message Pod {
+  string cluster = 1;
+  string namespace = 2;
+  google.protobuf.Timestamp creation_time = 3;
+  enum Phase {
+    UNKNOWN_PHASE = 0;
+    PENDING = 1;
+    RUNNING = 2;
+    SUCCEEDED = 3;
+    FAILED = 4;
+    UNKNOWN = 5;
+  }
+
+  Phase phase = 4;
+  k8s.io.api.core.v1.PodSpec spec = 5;
+  k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta object_meta = 6;
+}
+
+message RecursiveResource {
+  string uuid = 1;
+  string name = 2;
+  string display_name = 3;
+  string type = 4;
+  string parent = 5;
+  map<string, string> labels = 6;
+  map<string, string> tags = 7;
+
+  repeated RecursiveResource children = 8;
+}
+
+message Resource {
+  // Unique identifier of the resource as given by Modron
+  string uid = 1;
+  // Unique identifier of the collection run associated with the resource
+  string collection_uid = 2;
+  // collection timestamp
+  google.protobuf.Timestamp timestamp = 3;
+  // human readable name
+  string display_name = 4;
+  // link to the platform resource
+  string link = 5;
+  // provider uid concatenated with the resource human readable name
+  string name = 6;
+  // The name of the immediate parent resource.
+  string parent = 7;
+  // The name of the resource group the resource is in
+  string resource_group_name = 8;
+  // IamPolicy describes the IAM policy associated with that resource.
+  IamPolicy iam_policy = 9;
+
+  map<string, string> labels = 10;
+  map<string, string> tags = 11;
+
+  // ancestors is a list of resource groups that are ancestors of this resource.
+  // Since RGs can only have one parent, this is an UNORDERED list of all the
+  // ancestors of this resource. The tree must be reconstructed by
+  // analyzing the relationship between the resource groups.
+  repeated string ancestors = 12;
+
+  // Types should be generic enough that they can match types of different cloud
+  // providers.
+  reserved 111; // Old IAMGroup
+  oneof type {
+    VmInstance vm_instance = 100;
+    Network network = 101;
+    KubernetesCluster kubernetes_cluster = 102;
+    ServiceAccount service_account = 103;
+    LoadBalancer load_balancer = 104;
+    ResourceGroup resource_group = 105;
+    ExportedCredentials exported_credentials = 106;
+    APIKey api_key = 107;
+    Bucket bucket = 108;
+    Certificate certificate = 109;
+    Database database = 110;
+    Namespace namespace = 112;
+    Pod pod = 113;
+  }
+}
+
+// ResourceGroup designates the smallest administrative grouping of resources.
+message ResourceGroup {
+  reserved 1;
+  // Number describes an ID used by the platform to identify the Resource Group.
+  // In GCP this is the project number.
+  string identifier = 2;
+  string name = 3;
+}
+
+message Remediation {
+  string description = 1;
+  string recommendation = 2;
+}
+
+message ServiceAccount {
+  repeated ExportedCredentials exported_credentials = 1;
 }
 
 message SslPolicy {
@@ -222,120 +503,12 @@ message SslPolicy {
   repeated string customFeatures = 6;
 }
 
-message ServiceAccount {
-  repeated ExportedCredentials exported_credentials = 1;
+message VmInstance {
+  string public_ip = 1;
+  string private_ip = 2;
+  // ServiceAccount.Name
+  string identity = 3;
 }
-
-// ResourceGroup designates the smallest administrative grouping of resources.
-message ResourceGroup {
-  // Environment describes the environment of this resource group. For instance
-  // prod, dev, etc.
-  string environment = 1;
-  // Number describes an ID used by the platform to identify the Resource Group.
-  // In GCP this is the project number.
-  string identifier = 2;
-}
-
-message LoadBalancer {
-  enum Type {
-    UNKNOWN_TYPE = 0;
-    // An external load balancer exposes internal resources on the internet.
-    EXTERNAL = 1;
-    INTERNAL = 2;
-  }
-  Type type = 1;
-  repeated Certificate certificates = 2;
-  SslPolicy sslPolicy = 3;
-}
-
-message Certificate {
-  enum Type {
-    UNKNOWN = 0;
-    // Certificate managed by the user and imported into the platform.
-    IMPORTED = 1;
-    // Certificate managed by the platform.
-    MANAGED = 2;
-  }
-  Type type = 1;
-
-  // Fully-qualified domain name bound to the certificate.
-  string domain_name = 2;
-
-  // The list of alternative domain names bound to the certificate.
-  // See https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.6.
-  repeated string subject_alternative_names = 3;
-
-  google.protobuf.Timestamp creation_date = 4;
-  google.protobuf.Timestamp expiration_date = 5;
-
-  // The name of the certificate authority that issued the certificate.
-  string issuer = 6;
-
-  // The algorithm that was used by the issuer to sign the certificate.
-  string signature_algorithm = 7;
-
-  // The chain starts with the leaf certificate and continues with the
-  // remaining endorsing certificates in the chain of trust, if any.
-  // See https://datatracker.ietf.org/doc/html/rfc1421.html.
-  string pem_certificate_chain = 8;
-}
-
-message Resource {
-  // Unique identifier of the resource as given by Modron
-  string uid = 1;
-  // Unique identifier of the collection run associated with the resource
-  string collection_uid = 2;
-  // collection timestamp
-  google.protobuf.Timestamp timestamp = 3;
-  // human readable name
-  string display_name = 4;
-  // link to the platform resource
-  string link = 5;
-  // provider uid concatenated with the resource human readable name
-  string name = 6;
-  // The name of the immediate parent resource.
-  string parent = 7;
-  // The name of the resource group the resource is in
-  string resource_group_name = 8;
-  // IamPolicy describes the IAM policy associated with that resource.
-  IamPolicy iam_policy = 9;
-  // Types should be generic enough that they can match types of different cloud
-  // providers.
-  oneof type {
-    VmInstance vm_instance = 100;
-    Network network = 101;
-    KubernetesCluster kubernetes_cluster = 102;
-    ServiceAccount service_account = 103;
-    LoadBalancer load_balancer = 104;
-    ResourceGroup resource_group = 105;
-    ExportedCredentials exported_credentials = 106;
-    APIKey api_key = 107;
-    Bucket bucket = 108;
-    Certificate certificate = 109;
-    Database database = 110;
-    IamGroup group = 111;
-  }
-}
-
-message Remediation {
-  string description = 1;
-  string recommendation = 2;
-}
-
-message Observation {
-  string uid = 1;
-  string scan_uid = 2;
-  google.protobuf.Timestamp timestamp = 3;
-  Resource resource = 4;
-  // Human readable name of the observation.
-  string name = 5;
-  // Value found in the configuration that causes the issue.
-  google.protobuf.Value expected_value = 6;
-  google.protobuf.Value observed_value = 7;
-  Remediation remediation = 8;
-}
-
-message ScanResultsList { repeated Observation observations = 1; }
 
 service ModronService {
   // Scanning a project is a long running operation. We don't expect the user
@@ -344,6 +517,8 @@ service ModronService {
   // here, but it's quite an overhead for the first implementation. Performs a
   // collection, followed by a scan, on the requested resource groups
   rpc CollectAndScan(CollectAndScanRequest) returns (CollectAndScanResponse);
+  rpc CollectAndScanAll(CollectAndScanAllRequest) returns (CollectAndScanResponse);
+
   // List the latest observations resource groups
   rpc ListObservations(ListObservationsRequest)
       returns (ListObservationsResponse);
@@ -380,7 +555,8 @@ message GetStatusCollectAndScanRequest {
   string scan_id = 2;
 }
 
-message CollectAndScanRequest { repeated string resource_group_names = 1; }
+message CollectAndScanRequest {repeated string resource_group_names = 1;}
+message CollectAndScanAllRequest {}
 
 message CollectAndScanResponse {
   string collect_id = 1;
@@ -393,7 +569,12 @@ message ListObservationsRequest {
   repeated string resource_group_names = 3;
 }
 
-message CreateObservationRequest { Observation observation = 1; }
+message ListObservationsResponse {
+  repeated ResourceGroupObservationsPair resource_groups_observations = 1;
+  string next_page_token = 2;
+}
+
+message CreateObservationRequest {Observation observation = 1;}
 
 // we use this pair to get information about the rules that have no observations
 message RuleObservationPair {
@@ -408,7 +589,10 @@ message ResourceGroupObservationsPair {
   repeated RuleObservationPair rules_observations = 2;
 }
 
-message ListObservationsResponse {
-  repeated ResourceGroupObservationsPair resource_groups_observations = 1;
-  string next_page_token = 2;
+message ScanResultsList {repeated Observation observations = 1;}
+
+enum ScanType {
+  SCAN_TYPE_UNKNOWN = 0;
+  SCAN_TYPE_PARTIAL = 1;
+  SCAN_TYPE_FULL = 2;
 }

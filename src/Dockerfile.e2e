@@ -1,24 +1,19 @@
 # We have to keep this file here otherwise we can't depend on the shared proto.
 # Docker prevents including files above the Dockerfile directory (.. forbidden).
-ARG GOVERSION=1.21
+ARG GOVERSION=1.23
 
-FROM golang:${GOVERSION} as builder
-ENV GOPATH /go
-WORKDIR /app
-COPY test/go.* e2e_test_dir/
-COPY proto/ ./proto
-WORKDIR /app/e2e_test_dir
+FROM golang:${GOVERSION} AS builder
+ENV GOPATH=/go
+WORKDIR /app/src/test/
+COPY ./src/test/go.* /app/src/test/
+COPY ./src/proto/ /app/src/proto
 RUN go mod download
-COPY test/* ./
-RUN mkdir certs
-RUN openssl req -x509 -newkey rsa:4096 -keyout certs/key.pem -nodes -out certs/cert.pem -sha256 -days 1 -subj '/CN=modron_test' -addext "subjectAltName = DNS:modron_test"
+COPY ./src/test/* /app/src/test/
 RUN CGO_ENABLED=0 go test -c -v -o test
 
 FROM scratch
 WORKDIR /app/stats
 WORKDIR /app/secrets
 WORKDIR /app
-COPY --from=builder /app/e2e_test_dir/test /app/test
-COPY --from=builder /app/e2e_test_dir/certs/cert.pem /app/cert.pem
-COPY --from=builder /app/e2e_test_dir/certs/key.pem /app/key.pem
+COPY --from=builder /app/src/test/test /app/test
 ENTRYPOINT ["/app/test", "--test.short"]

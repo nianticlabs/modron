@@ -1,0 +1,48 @@
+<div>
+  <h1>UI Demo</h1>
+  <h3>Severities</h3>
+  <h4>Empty</h4>
+  <div class="severity-container">
+    <app-severity-indicator
+      *ngFor="let severity of severityValues"
+      [severity]="severity"
+    />
+  </div>
+
+  <h4>With number</h4>
+  <div class="severity-container">
+    <app-severity-indicator
+      *ngFor="let severity of severityValues"
+      [severity]="severity"
+      [count]="50"
+    />
+  </div>
+
+  <h3>Card</h3>
+  <div class="rg-container">
+    <app-resource-group
+      [lastScanDate]="date"
+      name="projects/with-observations"
+      [observationBySeverity]="[[5, 5], [4, 4], [3, 3], [2, 2], [1, 1]]"
+      [observationCount]="10"
+    />
+    <app-resource-group
+      [lastScanDate]="date"
+      name="projects/without-observations"
+      [observationCount]="0"
+    />
+  </div>
+
+  <h3>Single Observation (old)</h3>
+  <app-observation-details
+    [ob]="demoObservation"
+  />
+
+  <h3>Observation Dialog</h3>
+  <div class="observation-dialog">
+    <app-observation-details-dialog-content
+      [observation]="demoObservation"
+    />
+  </div>
+
+</div>

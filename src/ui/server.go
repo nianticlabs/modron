@@ -40,6 +40,7 @@ func main() {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handle)
+	glog.Infof("Listening on port %d", port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), mux); err != nil {
 		glog.Errorf("listenAndServe: %v", err)
 		os.Exit(2)

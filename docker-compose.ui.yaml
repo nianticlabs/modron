@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   modron_proxy:
     container_name: modron_proxy
@@ -16,30 +14,35 @@ services:
 
   modron_fake:
     container_name: modron_fake
-    build: src/
+    build:
+      context: .
+      dockerfile: src/Dockerfile
     environment:
       RUN_AUTOMATED_SCANS: "false"
       COLLECTOR: "FAKE"
       DB_MAX_CONNECTIONS: "1"
       GRPC_TRACE: "all"
       GRPC_VERBOSITY: "DEBUG"
-      OBSERVATION_TABLE_ID: "observations"
-      OPERATION_TABLE_ID: "operations"
-      ORG_ID: "0123456789"
+      LISTEN_ADDR: "0.0.0.0"
+      ORG_ID: "111111111111"
       ORG_SUFFIX: "@example.com"
       PORT: 8080
-      RESOURCE_TABLE_ID: "resources"
       SQL_BACKEND_DRIVER: "postgres"
       SQL_CONNECT_STRING: "host=postgres_db port=5432 user=modron password=docker-test-password database=modron sslmode=disable"
       STORAGE: "SQL"
+      TAG_CUSTOMER_DATA: 111111111111/customer_data
+      TAG_EMPLOYEE_DATA: 111111111111/employee_data
+      TAG_ENVIRONMENT: 111111111111/environment
     networks:
       - modron
     depends_on:
-      - postgres_db
+      postgres_db:
+        condition: service_healthy
 
   modron_ui:
     container_name: modron_ui
-    build: ./src/ui
+    build:
+      dockerfile: src/ui/Dockerfile
     environment:
       ENVIRONMENT: "E2E_TESTING"
       DIST_PATH: "./ui"
@@ -50,8 +53,8 @@ services:
   modron_test:
     container_name: modron_test
     build:
-      context: ./src/ui/client
-      dockerfile: Dockerfile.e2e
+      context: .
+      dockerfile: ./src/ui/client/Dockerfile.e2e
     depends_on:
       - modron_proxy
     environment:
@@ -68,15 +71,18 @@ services:
 
   postgres_db:
     container_name: postgres_db
-    build:
-      context: src/
-      dockerfile: Dockerfile.db
+    image: postgres:14-bookworm
     restart: always
     environment:
       POSTGRES_USER: "modron"
       POSTGRES_PASSWORD: "docker-test-password"
       POSTGRES_DB: "modron"
       PGDATA: "/tmp/"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U modron"]
+      interval: 1s
+      timeout: 2s
+      retries: 5
     tmpfs:
       - /tmp
     networks:

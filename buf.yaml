@@ -1,0 +1,10 @@
+version: v2
+modules:
+  - path: src/proto
+  - path: src/nagatha/proto
+deps:
+  - buf.build/googleapis/googleapis
+  - buf.build/k8s/api
+lint:
+  use:
+    - DEFAULT

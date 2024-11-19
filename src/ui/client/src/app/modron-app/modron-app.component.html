@@ -1,40 +1,19 @@
-<div class="modron-app-ctn">
-  <header>
-    <div>
-      <h1 class="grey">{{ organization | uppercase }}</h1>
-      <h1>MODRON</h1>
-    </div>
-  </header>
-
-  <div class="modron-app-main">
-    <nav>
-      <svg [routerLink]="'resourcegroups'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
-        <path d="m51,52.0927l0,387.90732l399,-1.0927l0,-308.14046l-134,-3.27809l-61,-76.48877l-204,1.0927z"
-          fill="#FFFFFF" id="svg_1" stroke="#000000" stroke-linejoin="round" stroke-width="50" />
-        <path d="m53.00014,214.97059l393.00028,-4l-393.00028,4z" fill="#FFFFFF" id="svg_3" stroke="#000000"
-          stroke-linejoin="round" stroke-width="50" transform="rotate(0.561705 249.5 212.971)" />
-      </svg>
-
-      <svg [routerLink]="'stats'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-        <path d="m69.93766,71l-0.93766,367l376,0" fill="#FFFFFF" id="svg_2" stroke="#000000" stroke-linecap="round"
-          stroke-linejoin="round" stroke-width="50" transform="matrix(1 0 0 1 0 0)" />
-        <path d="m145,355l1,-116l-1,116z" fill="#FFFFFF" id="svg_3" stroke="#000000" stroke-linecap="round"
-          stroke-linejoin="round" stroke-width="50" transform="matrix(1 0 0 1 0 0)" />
-        <path d="m232.5,360l1,-268.00001l-1,268.00001z" fill="#FFFFFF" id="svg_4" stroke="#000000"
-          stroke-linecap="round" stroke-linejoin="round" stroke-width="50" transform="matrix(1 0 0 1 0 0)" />
-        <path d="m323.5,359l1,-195l-1,195z" fill="#FFFFFF" id="svg_5" stroke="#000000" stroke-linecap="round"
-          stroke-linejoin="round" stroke-width="50" transform="matrix(1 0 0 1 0 0)" />
-        <path d="m417.5,360l1,-257l-1,257z" fill="#FFFFFF" id="svg_6" stroke="#000000" stroke-linecap="round"
-          stroke-linejoin="round" stroke-width="50" />
-      </svg>
-
-      <div class="nav-btn" viewBox="0 0 512 512">
-        <mat-icon [routerLink]="'exceptions'" [inline]="true">notifications_paused</mat-icon>
-      </div>
-    </nav>
-
-    <div class="app">
-      <router-outlet></router-outlet>
+<div class="modron-app">
+  <app-sidenav class="sidenav"/>
+  <div class="app-content">
+    <mat-toolbar color="primary" class="toolbar">
+      <img
+        ngSrc="assets/modron-white.svg"
+        class="logo"
+        alt="Modron Logo"
+        width="50"
+        height="50"
+      />
+      <span class="app-title">Modron</span>
+      <span class="app-spacer"></span>
+    </mat-toolbar>
+    <div class="router-container">
+      <router-outlet class="router-outlet"/>
     </div>
   </div>
 </div>

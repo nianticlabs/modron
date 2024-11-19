@@ -3,11 +3,11 @@ package rules
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
+
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
 )
 
 func TestPublicClusterNodesDetection(t *testing.T) {
@@ -42,21 +42,25 @@ func TestPublicClusterNodesDetection(t *testing.T) {
 		},
 	}
 
-	got := TestRuleRun(t, resources, []model.Rule{NewClusterNodesHavePublicIpsRule()})
-
 	// Expected values are ordered lexicographically.
 	want := []*pb.Observation{
 		{
 			Name: ClusterNodesHavePublicIps,
-			Resource: &pb.Resource{
-				Name: "public-cluster",
+			ResourceRef: &pb.ResourceRef{
+				Uid:           proto.String("uuid-0"),
+				GroupName:     "projects/project-0",
+				ExternalId:    proto.String("public-cluster"),
+				CloudPlatform: pb.CloudPlatform_GCP,
 			},
 			ExpectedValue: structpb.NewStringValue("private"),
 			ObservedValue: structpb.NewStringValue("public"),
+			Remediation: &pb.Remediation{
+				Description:    "Cluster [\"public-cluster\"](https://console.cloud.google.com/kubernetes/list/overview?project=project-0) has a public IP, which could make it accessible by anyone on the internet",
+				Recommendation: "Unless strictly needed, redeploy cluster [\"public-cluster\"](https://console.cloud.google.com/kubernetes/list/overview?project=project-0) as a [private cluster](https://cloud.google.com/kubernetes-engine/docs/how-to/private-clusters)",
+			},
+			Severity: pb.Severity_SEVERITY_HIGH,
 		},
 	}
 
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
-		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
-	}
+	TestRuleRun(t, resources, []model.Rule{NewClusterNodesHavePublicIpsRule()}, want)
 }

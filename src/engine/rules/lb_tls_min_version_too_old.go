@@ -5,20 +5,21 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 
-	"github.com/nianticlabs/modron/src/common"
 	"github.com/nianticlabs/modron/src/constants"
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-const LbMinTlsVersionTooOldRuleName = "LOAD_BALANCER_MIN_TLS_VERSION_TOO_OLD"
+const lbMinTLSVersionTooOldRule = "LOAD_BALANCER_MIN_TLS_VERSION_TOO_OLD"
 
 var (
-	minTlsVersion     = pb.SslPolicy_TLS_1_2
+	minTLSVersion     = pb.SslPolicy_TLS_1_2
 	protoToVersionMap = map[pb.SslPolicy_MinTlsVersion]string{
 		pb.SslPolicy_TLS_1_0: "TLS 1.0",
 		pb.SslPolicy_TLS_1_1: "TLS 1.1",
@@ -27,37 +28,40 @@ var (
 	}
 )
 
-type LbMinTlsVersionTooOldRule struct {
+type LbMinTLSVersionTooOldRule struct {
 	info model.RuleInfo
 }
 
 func init() {
-	AddRule(NewLbMinTlsVersionTooOldRule())
+	AddRule(NewLbMinTLSVersionTooOldRule())
 }
 
-func NewLbMinTlsVersionTooOldRule() model.Rule {
-	return &LbMinTlsVersionTooOldRule{
+func NewLbMinTLSVersionTooOldRule() model.Rule {
+	return &LbMinTLSVersionTooOldRule{
 		info: model.RuleInfo{
-			Name: LbMinTlsVersionTooOldRuleName,
-			AcceptedResourceTypes: []string{
-				common.ResourceLoadBalancer,
+			Name: lbMinTLSVersionTooOldRule,
+			AcceptedResourceTypes: []proto.Message{
+				&pb.LoadBalancer{},
 			},
 		},
 	}
 }
 
-func (r *LbMinTlsVersionTooOldRule) Check(ctx context.Context, rsrc *pb.Resource) (obs []*pb.Observation, errs []error) {
+func (r *LbMinTLSVersionTooOldRule) Check(_ context.Context, _ model.Engine, rsrc *pb.Resource) (obs []*pb.Observation, errs []error) {
 	lb := rsrc.GetLoadBalancer()
-
 	sslPolicy := lb.SslPolicy
 
-	if lb.Type == pb.LoadBalancer_EXTERNAL && sslPolicy.MinTlsVersion < minTlsVersion {
+	if sslPolicy == nil {
+		return nil, []error{fmt.Errorf("SSL policy is nil")}
+	}
+
+	if lb.Type == pb.LoadBalancer_EXTERNAL && sslPolicy.MinTlsVersion < minTLSVersion {
 		obs = append(obs, &pb.Observation{
 			Uid:           uuid.NewString(),
 			Timestamp:     timestamppb.Now(),
-			Resource:      rsrc,
+			ResourceRef:   utils.GetResourceRef(rsrc),
 			Name:          r.Info().Name,
-			ExpectedValue: structpb.NewStringValue(protoToVersionMap[minTlsVersion]),
+			ExpectedValue: structpb.NewStringValue(protoToVersionMap[minTLSVersion]),
 			ObservedValue: structpb.NewStringValue(protoToVersionMap[sslPolicy.MinTlsVersion]),
 			Remediation: &pb.Remediation{
 				Description: fmt.Sprintf(
@@ -69,15 +73,16 @@ func (r *LbMinTlsVersionTooOldRule) Check(ctx context.Context, rsrc *pb.Resource
 					"Configure an SSL policy for the load balancer [%q](https://console.cloud.google.com/net-services/loadbalancing/list/loadBalancers?project=%s) that has a Minimum TLS version of %s and uses e.g. the \"MODERN\" or \"RESTRICTED\" configuration",
 					getGcpReadableResourceName(rsrc.Name),
 					constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
-					protoToVersionMap[minTlsVersion],
+					protoToVersionMap[minTLSVersion],
 				),
 			},
+			Severity: pb.Severity_SEVERITY_HIGH,
 		})
 	}
 
 	return obs, errs
 }
 
-func (r *LbMinTlsVersionTooOldRule) Info() *model.RuleInfo {
+func (r *LbMinTLSVersionTooOldRule) Info() *model.RuleInfo {
 	return &r.info
 }

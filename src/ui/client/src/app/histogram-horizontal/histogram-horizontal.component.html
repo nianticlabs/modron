@@ -1,8 +1,0 @@
-<div>
-  <div class="chart-ctn" *ngFor="let key of this.data.keys()">
-    <h4 class="annotation">{{ this.parseKey(key) }}</h4>
-    <div class="bar" [style.width]="this.getWidth(key)">
-      {{ this.data.get(key) }}
-    </div>
-  </div>
-</div>

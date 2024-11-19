@@ -24,6 +24,23 @@ export class MapPerTypeName implements PipeTransform {
   }
 }
 
+
+@Pipe({ name: "mapByRiskScore" })
+export class MapByRiskScorePipe implements PipeTransform {
+  transform(obs: pb.Observation[]): [number, number][] {
+    const sevMap = new Map<number, number>();
+    for(const o of obs) {
+      const amountSeverities = sevMap.get(o.getRiskScore());
+      if(amountSeverities === undefined){
+        sevMap.set(o.getRiskScore(), 1);
+        continue;
+      }
+      sevMap.set(o.getRiskScore(), amountSeverities+1);
+    }
+    return Array.from(sevMap.entries()).sort((a, b) => b[0] - a[0])
+  }
+}
+
 @Pipe({ name: "observations" })
 export class ObservationsPipe implements PipeTransform {
   transform(obs: Map<string, pb.Observation[]>): pb.Observation[] {

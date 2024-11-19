@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/nianticlabs/modron/src/common"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
 
 	"golang.org/x/net/context"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -29,13 +29,12 @@ func getAccessType(members []string) pb.Bucket_AccessType {
 }
 
 // TODO: Check the ACL to detect if the bucket is public if uniform bucket-level access is disabled.
-func (collector *GCPCollector) ListBuckets(ctx context.Context, resourceGroup *pb.Resource) ([]*pb.Resource, error) {
-	res, err := collector.api.ListBuckets(ctx, resourceGroup.Name)
+func (collector *GCPCollector) ListBuckets(ctx context.Context, rgName string) (buckets []*pb.Resource, err error) {
+	res, err := collector.api.ListBuckets(ctx, rgName)
 	if err != nil {
 		return nil, err
 	}
 
-	buckets := []*pb.Resource{}
 	removeDefaultBindings := func(members []string) (filteredList []string) {
 		for _, member := range members {
 			if strings.HasPrefix(member, "projectViewer:") || strings.HasPrefix(member, "projectOwner:") || strings.HasPrefix(member, "projectEditor:") {
@@ -52,7 +51,7 @@ func (collector *GCPCollector) ListBuckets(ctx context.Context, resourceGroup *p
 		}
 
 		accessType := pb.Bucket_ACCESS_UNKNOWN
-		permissions := []*pb.Permission{}
+		var permissions []*pb.Permission
 		for _, binding := range iamPolicy.Bindings {
 			bindingMembers := removeDefaultBindings(binding.Members)
 			permissions = append(permissions, &pb.Permission{
@@ -91,10 +90,10 @@ func (collector *GCPCollector) ListBuckets(ctx context.Context, resourceGroup *p
 			}
 		}
 		buckets = append(buckets, &pb.Resource{
-			Uid:               common.GetUUID(3),
-			ResourceGroupName: resourceGroup.Name,
-			Name:              formatResourceName(bucket.Name, bucket.Id),
-			Parent:            resourceGroup.Name,
+			Uid:               common.GetUUID(uuidGenRetries),
+			ResourceGroupName: rgName,
+			Name:              bucket.Name,
+			Parent:            rgName,
 			IamPolicy: &pb.IamPolicy{
 				Permissions: permissions,
 			},

@@ -1,0 +1,30 @@
+version: v2
+managed:
+  enabled: true
+
+plugins:
+  - local: protoc-gen-go
+    out: src/proto/generated
+  - local: protoc-gen-go-grpc
+    out: src/proto/generated
+  - local: protoc-gen-js
+    out: src/ui/client/src/proto/
+    opt: import_style=commonjs,binary
+  - local: protoc-gen-grpc-web
+    out: src/ui/client/src/proto/
+    opt:
+      - import_style=typescript
+      - mode=grpcweb
+
+inputs:
+  - directory: ./src/proto
+  - directory: ./src/nagatha/proto
+  - module: buf.build/googleapis/googleapis:8bc2c51e08c447cd8886cdea48a73e14
+    paths:
+      - google/api
+      - google/rpc
+      - google/longrunning
+  - module: buf.build/k8s/api:8f68e41b943c4de8a5e9c9a921c889a7
+    paths:
+      - k8s.io/api/core
+      - k8s.io/apimachinery/

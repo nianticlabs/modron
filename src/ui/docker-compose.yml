@@ -1,0 +1,17 @@
+version: '3'
+services:
+  mock-grpc-server:
+    build:
+      context: mock-grpc-server
+    networks:
+      - envoy-net
+  envoy:
+    image: envoyproxy/envoy:v1.29-latest
+    volumes:
+      - ./mock-grpc-server/envoy.yaml:/etc/envoy/envoy.yaml:ro
+    ports:
+      - "4201:4201"
+    networks:
+      - envoy-net
+networks:
+  envoy-net:

@@ -1,0 +1,49 @@
+.mat-column-riskScore {
+  max-width: 80px;
+}
+
+.mat-column-category {
+  max-width: 350px;
+}
+
+.mat-column-shortDesc {
+  min-width: 30%;
+}
+
+.mat-column-shortDesc, .mat-column-category {
+  max-height: 1em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+
+  div {
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.mat-cell {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  > p {
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.mat-column-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  justify-items: center;
+  max-width: 100px;
+
+  > * {
+    cursor: pointer;
+  }
+}

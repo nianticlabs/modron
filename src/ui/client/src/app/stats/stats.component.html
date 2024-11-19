@@ -1,118 +1,85 @@
 <div class="app-stats">
   <div class="app-stats-header">
-    <h1>Security Statistics |</h1>
-    <h2>general overview</h2>
+    <h2>Statistics</h2>
   </div>
 
   <div *ngIf="this.store.observations$ | async; let obs">
-    <div class="stats-ctn">
-      <div class="app-stats-main-stats">
-        <div class="main-stat-bloc good">
-          <h1>
+    <div class="main-stats">
+      <mat-card class="dashboard-card positive-card" appearance="outlined">
+        <mat-card-content>
+          <mat-card-title>Compliant Projects</mat-card-title>
+          <mat-card-subtitle>
             {{
-            (obs | mapFlatRules).size -
-            (obs | mapFlatRules | keyvalue | invalidProjectNb)
+              (obs | mapFlatRules).size -
+              (obs | mapFlatRules | keyvalue | invalidProjectNb)
             }}
-          </h1>
-          <h2>compliant projects</h2>
-        </div>
-
-        <div class="main-stat-bloc bad">
-          <h1>{{ obs | mapFlatRules | keyvalue | invalidProjectNb }}</h1>
-          <h2>projects with issues</h2>
-        </div>
-
-        <div class="main-stat-bloc bad">
-          <h1>{{ (obs | mapFlatRules | observations).length }}</h1>
-          <h2>obser&shy;<wbr>vations</h2>
-        </div>
-
-        <div class="main-stat-bloc bad">
-          <h1>{{ (obs | mapFlatRules | mapByType).size }}</h1>
-          <h2>rule types</h2>
-        </div>
-      </div>
-
-      <div>
-        <div *ngFor="
-            let obsType of this.mapByType(obs) | keyvalue | reverseSortByLength;
-            trackBy: this.identity
-          ">
-          <div *ngIf="obsType.value | mapByObservedValues; let obsStat">
-            <div *ngIf="obsType.value.length === 0" class="rule-header">
-              <div class="inline">
-                <a [routerLink]="['./']" fragment="{{ obsType.key }}">
-                  <h1 id="{{ obsType.key }}">{{ obsType.key }}:</h1>
-                  <h1 style="color: #24a148">✔ you pass all the checks</h1>
-                </a>
-              </div>
-            </div>
-
-            <div *ngIf="obsType.value.length > 0" class="rule-header">
-              <a [routerLink]="['./']" fragment="{{ obsType.key }}">
-                <h1 id="{{ obsType.key }}">
-                  {{ obsType.key }}: {{ obsType.value.length }} total observations
-                </h1>
-              </a>
-              <div class="buttons">
-                <div class="hover-note" data-hover="close search">
-                  <svg (click)="this.toggleSearch(obsType.key)" *ngIf="this.displaySearchRules.get(obsType.key)"
-                    viewBox="0 0 500 500">
-                    <circle cx="207.49999" cy="188.99999" fill="#FFFFFF" id="svg_1" r="135.61386" stroke="#000000"
-                      stroke-width="50" />
-                    <path d="m422.99999,447c0,0 -125.99999,-143 -125.99999,-143c0,0 125.99999,143 125.99999,143z"
-                      fill="#FFFFFF" id="svg_2" stroke="#000000" stroke-linejoin="round" stroke-width="50" />
-                    <path d="m422.99999,447c0,0 -125.99999,-143 -125.99999,-143c0,0 125.99999,143 125.99999,143z"
-                      fill="#FFFFFF" id="svg_3" stroke="#000000" stroke-linejoin="round" stroke-width="50" />
-                    <path d="m256.96984,189.97015c0,0 -96.99999,0 -96.99999,0c0,0 96.99999,0 96.99999,0z" fill="#FFFFFF"
-                      id="svg_4" stroke="#000000" stroke-linejoin="round" stroke-width="50"
-                      transform="matrix(0.99995 0.00999965 -0.00999965 0.99995 1.94021 -2.04528)" />
-                  </svg>
-                </div>
-
-                <div class="hover-note" data-hover="list obs.">
-                  <svg (click)="this.toggleSearch(obsType.key)" *ngIf="!this.displaySearchRules.get(obsType.key)"
-                    viewBox="0 0 500 500">
-                    <circle cx="207.49999" cy="188.99999" fill="#FFFFFF" id="svg_1" r="135.61386" stroke="#000000"
-                      stroke-width="50" />
-                    <path d="m422.99999,447c0,0 -125.99999,-143 -125.99999,-143c0,0 125.99999,143 125.99999,143z"
-                      fill="#FFFFFF" id="svg_2" stroke="#000000" stroke-linejoin="round" stroke-width="50" />
-                    <path d="m422.99999,447c0,0 -125.99999,-143 -125.99999,-143c0,0 125.99999,143 125.99999,143z"
-                      fill="#FFFFFF" id="svg_3" stroke="#000000" stroke-linejoin="round" stroke-width="50" />
-                    <path
-                      d="m256.99757,190.48498c0,0 -96.99514,-0.96997 -96.99514,-0.96997c0,0 96.99514,0.96997 96.99514,0.96997z"
-                      fill="#FFFFFF" id="svg_4" stroke="#000000" stroke-linejoin="round" stroke-width="50" />
-                    <path
-                      d="m256.99757,190.48498c0,0 -96.99514,-0.96997 -96.99514,-0.96997c0,0 96.99514,0.96997 96.99514,0.96997z"
-                      fill="#FFFFFF" id="svg_5" stroke="#000000" stroke-linejoin="round" stroke-width="50" />
-                    <path
-                      d="m256.99757,190.48498c0,0 -96.99514,-0.96997 -96.99514,-0.96997c0,0 96.99514,0.96997 96.99514,0.96997z"
-                      fill="#FFFFFF" id="svg_6" stroke="#000000" stroke-linejoin="round" stroke-width="50"
-                      transform="rotate(90 208.5 190)" />
-                  </svg>
-                </div>
-
-                <div class="hover-note" data-hover="export to .csv">
-                  <svg (click)="this.exportCsvObs(obsType.value, obsType.key)" viewBox="0 0 500 500">
-                    <rect fill="#FFFFFF" height="418.72469" id="svg_1" stroke="#000000" stroke-linecap="round"
-                      stroke-linejoin="round" stroke-width="50" width="307.00001" x="100" y="35.27531" />
-                    <path d="m252,120l-1,160l1,-160z" fill="#FFFFFF" id="svg_2" stroke="#000000" stroke-linecap="round"
-                      stroke-linejoin="round" stroke-width="50" transform="matrix(1 0 0 1 0 0)" />
-                    <path d="m311,247c0,0 -61,70 -61,70c0,0 -94,-101 -49,-52" fill="transparent" id="svg_3"
-                      stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="50" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div *ngIf="this.displaySearchRules.get(obsType.key)">
-              <app-search-obs [obs]="obsType.value"></app-search-obs>
-            </div>
-
-            <app-histogram-horizontal [data]="obsStat"></app-histogram-horizontal>
-          </div>
-        </div>
-      </div>
+          </mat-card-subtitle>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="dashboard-card negative-card" appearance="outlined">
+        <mat-card-content>
+          <mat-card-title>Projects with Issues</mat-card-title>
+          <mat-card-subtitle>{{ obs | mapFlatRules | keyvalue | invalidProjectNb }}</mat-card-subtitle>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="dashboard-card negative-card" appearance="outlined">
+        <mat-card-content>
+          <mat-card-title>Observations</mat-card-title>
+          <mat-card-subtitle>{{ (obs | mapFlatRules | observations).length }}</mat-card-subtitle>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="dashboard-card" appearance="outlined">
+        <mat-card-content>
+          <mat-card-title>Rule Types</mat-card-title>
+          <mat-card-subtitle>{{ (obs | mapFlatRules | mapByType).size }}</mat-card-subtitle>
+        </mat-card-content>
+      </mat-card>
     </div>
+    <div class="observations-list">
+        <mat-card
+          *ngFor="
+        let obsType of this.mapByType(obs) | keyvalue | reverseSortByLength;
+        trackBy: this.identity"
+          class="observation-card"
+          appearance="outlined"
+        >
+          <mat-card-header>
+            <mat-card-title>{{ obsType.key }}</mat-card-title>
+            <mat-card-subtitle>{{ obsType.value.length }} observations</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content class="card-content">
+            <div *ngIf="obsType.value.length !== 0">
+              <div *ngIf="obsType.value | mapByObservedValues; let obsStat">
+                <app-observations-stats
+                  [data]="obsStat"
+                  class="observations-histogram"
+                  *ngIf="obsStat.size > 1"
+                ></app-observations-stats>
+              </div>
+              <mat-accordion>
+                <mat-expansion-panel>
+                  <mat-expansion-panel-header>
+                    <mat-panel-title>
+                      List of the observations
+                    </mat-panel-title>
+                  </mat-expansion-panel-header>
+                  <ng-template matExpansionPanelContent>
+                    <app-observations-table
+                      [obs]="obsType.value"
+                      [columns]='["riskScore", "category", "resourceGroup", "resource", "shortDesc", "observedValue", "expectedValue", "actions"]'
+                    />
+                  </ng-template>
+                </mat-expansion-panel>
+              </mat-accordion>
+              <button
+                class="export-csv-button"
+                color="primary"
+                (click)="this.exportCsvObs(obsType.value, obsType.key)"
+                mat-flat-button>
+                Export as CSV
+              </button>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
   </div>
-</div>

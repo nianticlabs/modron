@@ -1,13 +1,15 @@
 package nagatha
 
 import (
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/nianticlabs/modron/src/model"
+	"github.com/nianticlabs/modron/src/proto/generated/nagatha"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func exceptionModelFromNagathaProto(ex *Exception) model.Exception {
+func exceptionModelFromNagathaProto(ex *nagatha.Exception) model.Exception {
 	return model.Exception{
-		Uuid:             ex.Uuid,
+		UUID:             ex.Uuid,
 		SourceSystem:     ex.SourceSystem,
 		UserEmail:        ex.UserEmail,
 		NotificationName: ex.NotificationName,
@@ -17,9 +19,9 @@ func exceptionModelFromNagathaProto(ex *Exception) model.Exception {
 	}
 }
 
-func exceptionNagathaProtoFromModel(ex model.Exception) *Exception {
-	return &Exception{
-		Uuid:             ex.Uuid,
+func exceptionNagathaProtoFromModel(ex model.Exception) *nagatha.Exception {
+	return &nagatha.Exception{
+		Uuid:             ex.UUID,
 		SourceSystem:     ex.SourceSystem,
 		UserEmail:        ex.UserEmail,
 		NotificationName: ex.NotificationName,

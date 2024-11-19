@@ -1,52 +1,37 @@
 package rules
 
 import (
-	"context"
-	"strings"
+	"errors"
+	"fmt"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"google.golang.org/protobuf/testing/protocmp"
-
-	"github.com/nianticlabs/modron/src/engine"
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
-	"github.com/nianticlabs/modron/src/storage/memstorage"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestCheckDetectsUserManagedCertificate(t *testing.T) {
-	resources := []*pb.Resource{
-		{
-			Name:              testProjectName,
-			Parent:            "",
-			ResourceGroupName: testProjectName,
-			IamPolicy:         &pb.IamPolicy{},
-			Type: &pb.Resource_ResourceGroup{
-				ResourceGroup: &pb.ResourceGroup{},
-			},
-		},
-		{
-			Name:              "lb-imported-cert-should-be-detected",
-			Parent:            testProjectName,
-			ResourceGroupName: testProjectName,
-			IamPolicy:         &pb.IamPolicy{},
-			Type: &pb.Resource_LoadBalancer{
-				LoadBalancer: &pb.LoadBalancer{
-					Type: pb.LoadBalancer_EXTERNAL,
-					Certificates: []*pb.Certificate{
-						{
-							Type:                    pb.Certificate_IMPORTED,
-							DomainName:              "domain-0.github.com/nianticlabs/modron",
-							SubjectAlternativeNames: []string{},
-							CreationDate:            &timestamppb.Timestamp{},
-							ExpirationDate:          &timestamppb.Timestamp{},
-							Issuer:                  "",
-							SignatureAlgorithm:      "sha1WithRSAEncryption",
-							PemCertificateChain: `
+	lbImportedCert := &pb.Resource{
+		Name:              "lb-imported-cert-should-be-detected",
+		Parent:            testProjectName,
+		ResourceGroupName: testProjectName,
+		IamPolicy:         &pb.IamPolicy{},
+		Type: &pb.Resource_LoadBalancer{
+			LoadBalancer: &pb.LoadBalancer{
+				Type: pb.LoadBalancer_EXTERNAL,
+				Certificates: []*pb.Certificate{
+					{
+						Type:                    pb.Certificate_IMPORTED,
+						DomainName:              "domain-0.modron.example.com",
+						SubjectAlternativeNames: []string{},
+						CreationDate:            &timestamppb.Timestamp{},
+						ExpirationDate:          &timestamppb.Timestamp{},
+						Issuer:                  "",
+						SignatureAlgorithm:      "sha1WithRSAEncryption",
+						PemCertificateChain: `
 							-----BEGIN CERTIFICATE-----
 							MIIFTTCCAzUCCQD9AMCeW12GEDANBgkqhkiG9w0BAQUFADBVMRAwDgYDVQQLDAdV
 							bmtub3duMRAwDgYDVQQKDAdVbmtub3duMRAwDgYDVQQHDAdVbmtub3duMRAwDgYD
@@ -109,11 +94,22 @@ func TestCheckDetectsUserManagedCertificate(t *testing.T) {
 							muOKyutYtJqW5tqke8N7Yy9oDUlqtt6gnFE=
 							-----END CERTIFICATE-----
 							`,
-						},
 					},
 				},
 			},
 		},
+	}
+	resources := []*pb.Resource{
+		{
+			Name:              testProjectName,
+			Parent:            "",
+			ResourceGroupName: testProjectName,
+			IamPolicy:         &pb.IamPolicy{},
+			Type: &pb.Resource_ResourceGroup{
+				ResourceGroup: &pb.ResourceGroup{},
+			},
+		},
+		lbImportedCert,
 		{
 			Name:              "lb-managed-cert-should-not-be-detected",
 			Parent:            testProjectName,
@@ -125,7 +121,7 @@ func TestCheckDetectsUserManagedCertificate(t *testing.T) {
 					Certificates: []*pb.Certificate{
 						{
 							Type:                    pb.Certificate_MANAGED,
-							DomainName:              "domain-1.github.com/nianticlabs/modron",
+							DomainName:              "domain-1.modron.example.com",
 							SubjectAlternativeNames: []string{},
 							CreationDate:            &timestamppb.Timestamp{},
 							ExpirationDate:          &timestamppb.Timestamp{},
@@ -201,29 +197,30 @@ func TestCheckDetectsUserManagedCertificate(t *testing.T) {
 		},
 	}
 
-	want := []*structpb.Value{
-		structpb.NewNumberValue(float64(pb.Certificate_MANAGED)),
+	want := []*pb.Observation{
+		{
+			Name:          LbUserManagedCertRuleName,
+			ObservedValue: structpb.NewStringValue("IMPORTED"),
+			ExpectedValue: structpb.NewStringValue("MANAGED"),
+			ResourceRef:   utils.GetResourceRef(lbImportedCert),
+			Remediation: &pb.Remediation{
+				Description:    "Load balancer [\"lb-imported-cert-should-be-detected\"](https://console.cloud.google.com/net-services/loadbalancing/list/loadBalancers?project=project-0) has user-managed certificate issued by \"\" for the domain \"domain-0.modron.example.com\"",
+				Recommendation: "Configure a platform-managed certificate for load balancer [\"lb-imported-cert-should-be-detected\"](https://console.cloud.google.com/net-services/loadbalancing/list/loadBalancers?project=project-0) to ensure lower management overhead, better security and prevent outages caused by certificate expiry",
+			},
+			Severity: pb.Severity_SEVERITY_INFO,
+		},
 	}
 
-	obs := TestRuleRun(t, resources, []model.Rule{NewLbUserManagedCertRule()})
-
-	got := []*structpb.Value{}
-	for _, ob := range obs {
-		got = append(got, ob.ExpectedValue)
-	}
-
-	// Check that the observations are correct.
-	if diff := cmp.Diff(want, got, protocmp.Transform(), cmpopts.SortSlices(observationsSorter)); diff != "" {
-		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
-	}
+	TestRuleRun(t, resources, []model.Rule{NewLbUserManagedCertRule()}, want)
 }
 
 func TestCheckDetectsUnknownCertificate(t *testing.T) {
 	resources := []*pb.Resource{
 		{
-			Name:      "projects/project-1",
-			Parent:    "folders/234",
-			IamPolicy: &pb.IamPolicy{},
+			Name:              "projects/project-1",
+			Parent:            "folders/234",
+			IamPolicy:         &pb.IamPolicy{},
+			ResourceGroupName: "projects/project-1",
 			Type: &pb.Resource_ResourceGroup{
 				ResourceGroup: &pb.ResourceGroup{},
 			},
@@ -239,7 +236,7 @@ func TestCheckDetectsUnknownCertificate(t *testing.T) {
 					Certificates: []*pb.Certificate{
 						{
 							Type:                    pb.Certificate_UNKNOWN,
-							DomainName:              "domain-2.github.com/nianticlabs/modron",
+							DomainName:              "domain-2.modron.example.com",
 							SubjectAlternativeNames: []string{},
 							CreationDate:            &timestamppb.Timestamp{},
 							ExpirationDate:          &timestamppb.Timestamp{},
@@ -315,21 +312,9 @@ func TestCheckDetectsUnknownCertificate(t *testing.T) {
 		},
 	}
 
-	storage := memstorage.New()
-	storageCtx := context.Background()
-	if _, err := storage.BatchCreateResources(storageCtx, resources); err != nil {
-		t.Errorf("AddResources unexpected error: %v", err)
-	}
-
-	re := engine.New(storage, []model.Rule{NewLbUserManagedCertRule()}, []string{})
-	reCtx := context.Background()
-	_, err := re.CheckRules(reCtx, "", []string{"projects/project-1"})
-	if len(err) != 1 {
-		t.Fatalf("len(err) got %d, want %d", len(err), 1)
-	}
-	for _, e := range err {
-		if !strings.Contains(e.Error(), "unknown type") {
-			t.Errorf("CheckRules unexpected error string, got %q, want %q", e, "*unknown type")
-		}
-	}
+	TestRuleShouldFail(t, resources, []model.Rule{NewLbUserManagedCertRule()}, []error{
+		fmt.Errorf("execution of rule LOAD_BALANCER_USER_MANAGED_CERTIFICATE failed: %w",
+			errors.New("certificate issued by \"\" for the domain \"domain-2.modron.example.com\" is of unknown type"),
+		),
+	})
 }

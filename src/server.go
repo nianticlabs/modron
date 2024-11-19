@@ -1,373 +1,243 @@
-// Binary modron is a Cloud auditing tool.
-
-// Modron compares the existing state with a set of predefined rules
-// and provides ways to crowd source the resolution of issues
-// to resource owners.
 package main
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
 	"fmt"
-	"os"
+	"regexp"
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
-	"github.com/google/uuid"
 	"golang.org/x/exp/maps"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"golang.org/x/oauth2"
+	"google.golang.org/api/idtoken"
+
+	"github.com/improbable-eng/grpc-web/go/grpcweb"
+	_ "github.com/lib/pq"
+
+	"github.com/nianticlabs/modron/src/acl/fakeacl"
+	"github.com/nianticlabs/modron/src/acl/gcpacl"
+	"github.com/nianticlabs/modron/src/collector"
+	"github.com/nianticlabs/modron/src/collector/gcpcollector"
 	"github.com/nianticlabs/modron/src/constants"
+	"github.com/nianticlabs/modron/src/engine"
 	"github.com/nianticlabs/modron/src/engine/rules"
+	"github.com/nianticlabs/modron/src/lognotifier"
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	"github.com/nianticlabs/modron/src/nagatha"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/risk"
+	"github.com/nianticlabs/modron/src/service"
+	"github.com/nianticlabs/modron/src/statemanager/reqdepstatemanager"
+	"github.com/nianticlabs/modron/src/storage"
+	"github.com/nianticlabs/modron/src/storage/gormstorage"
+	"github.com/nianticlabs/modron/src/storage/memstorage"
 )
 
-// TODO: Implement paginated API
-type modronService struct {
-	checker         model.Checker
-	collector       model.Collector
-	notificationSvc model.NotificationService
-	ruleEngine      model.RuleEngine
-	stateManager    model.StateManager
-	storage         model.Storage
-	// Required
-	pb.UnimplementedModronServiceServer
-	pb.UnimplementedNotificationServiceServer
-}
+const (
+	defaultCacheTimeout = 20 * time.Second
+)
 
-func (modron *modronService) validateResourceGroupNames(ctx context.Context, resourceGroupNames []string) ([]string, error) {
-	ownedResourceGroups, err := modron.checker.ListResourceGroupNamesOwned(ctx)
-	if err != nil {
-		glog.Warningf("validate resource groups: %v", err)
-		return nil, status.Error(codes.Unauthenticated, "failed authenticating request")
-	}
-	if len(resourceGroupNames) == 0 {
-		for k := range ownedResourceGroups {
-			resourceGroupNames = append(resourceGroupNames, k)
-		}
-	} else {
-		for _, rsgName := range resourceGroupNames {
-			if _, ok := ownedResourceGroups[rsgName]; !ok {
-				return nil, status.Error(codes.PermissionDenied, "resource group(s) is inaccessible")
-			}
-		}
-	}
-	return resourceGroupNames, nil
-}
-
-func (modron *modronService) scan(ctx context.Context, resourceGroupNames []string, scanId string) {
-	glog.V(5).Infof("request scan %s for %+v", scanId, resourceGroupNames)
-	filteredGroups := modron.stateManager.AddScan(scanId, resourceGroupNames)
-	glog.V(5).Infof("filtered scan %s for %+v", scanId, filteredGroups)
-	if len(filteredGroups) < 1 {
-		glog.Warningf("no groups to scan, aborting %s", scanId)
-		return
-	} else {
-		glog.Infof("starting scan %s for resource groups %v", scanId, filteredGroups)
-	}
-	obs, errs := modron.ruleEngine.CheckRules(ctx, scanId, filteredGroups)
-	if len(errs) > 0 {
-		glog.Errorf("scanId %s: %v", scanId, errors.Join(errs...))
-	}
-	glog.V(5).Infof("ending scan %s for %+v", scanId, filteredGroups)
-	modron.stateManager.EndScan(scanId, filteredGroups)
-	glog.Infof("scan %s completed", scanId)
-	if err := modron.storage.FlushOpsLog(ctx); err != nil {
-		glog.Warningf("flush ops log: %v", err)
-	}
-	if len(obs) < 1 {
-		glog.Warningf("scan %s returned no observations.", scanId)
-	}
-	for _, o := range obs {
-		notifications, err := modron.notificationsFromObservation(ctx, o)
-		if err != nil {
-			glog.Warningf("notifications: %v", err)
-			continue
-		}
-		for _, n := range notifications {
-			_, err := modron.notificationSvc.CreateNotification(ctx, n)
-			if err != nil {
-				if s, ok := status.FromError(err); !ok {
-					glog.Warningf("notification creation: %v", err)
-				} else {
-					if s.Code() == codes.AlreadyExists || s.Code() == codes.FailedPrecondition {
-						// Failed precondition is returned when an exception exist for the notification.
-						continue
-					} else {
-						glog.Warningf("notification %v creation: %s: %s", n, s.Code(), s.Message())
-					}
-				}
-			}
-		}
-	}
-}
-
-func (modron *modronService) collect(ctx context.Context, resourceGroupNames []string, collectId string) {
-	glog.V(5).Infof("request collection %s for %+v", collectId, resourceGroupNames)
-	filteredGroups := modron.stateManager.AddCollect(collectId, resourceGroupNames)
-	glog.V(5).Infof("filtered collection %s for %+v", collectId, filteredGroups)
-	if len(filteredGroups) > 0 {
-		glog.Infof("collect start id: %s for %+v", collectId, filteredGroups)
-		if err := modron.collector.CollectAndStoreAllResourceGroupResources(ctx, collectId, filteredGroups); len(err) != 0 {
-			glog.Warningf("collectId %s, errs: %v", collectId, errors.Join(err...))
-		} else {
-			glog.Infof("collect done %s", collectId)
-		}
-	}
-	modron.stateManager.EndCollect(collectId, filteredGroups)
-}
-
-func (modron *modronService) collectAndScan(ctx context.Context, resourceGroupNames []string) *pb.CollectAndScanResponse {
-	modronCtx := context.Background()
-	collectId, scanId := uuid.NewString(), uuid.NewString()
-	go func(resourceGroupNames []string) {
-		modron.collect(modronCtx, resourceGroupNames, collectId)
-		modron.scan(modronCtx, resourceGroupNames, scanId)
-	}(resourceGroupNames)
-	return &pb.CollectAndScanResponse{
-		CollectId: collectId,
-		ScanId:    scanId,
-	}
-}
-
-// rpc exposed CollectAndScan with resource group ownership validation
-func (modron *modronService) CollectAndScan(ctx context.Context, in *pb.CollectAndScanRequest) (*pb.CollectAndScanResponse, error) {
-	resourceGroupNames, err := modron.validateResourceGroupNames(ctx, in.ResourceGroupNames)
-	if err != nil {
-		return nil, status.Errorf(codes.FailedPrecondition, "resource group %+v: %v", in.ResourceGroupNames, err)
-	}
-	return modron.collectAndScan(ctx, resourceGroupNames), nil
-}
-
-func (modron *modronService) scheduledRunner(ctx context.Context) {
-	intervalS := os.Getenv(collectAndScanInterval)
-
-	interval, err := time.ParseDuration(intervalS)
-	if err != nil || interval < time.Hour { // enforce a minimum of 1 hour interval
-		interval, _ = time.ParseDuration(defaultCollectAndScanInterval)
-		glog.Warningf("scan scheduler: env interval: %v . Keeping default value: %s", err, interval)
-	}
-	for {
-		glog.Infof("scan scheduler: starting")
-		if ctx.Err() != nil {
-			glog.Errorf("scan scheduler: %v", ctx.Err())
-			return
-		}
-		rgs, err := modron.collector.ListResourceGroupNames(ctx)
-		if err != nil {
-			glog.Errorf("list resource groups: %v", err)
-			return
-		}
-		r := modron.collectAndScan(ctx, rgs)
-		glog.Infof("scan scheduler done: collectionID: %s, scanID: %s", r.CollectId, r.ScanId)
-		time.Sleep(interval)
-	}
-}
-
-func (modron *modronService) ListObservations(ctx context.Context, in *pb.ListObservationsRequest) (*pb.ListObservationsResponse, error) {
-	groups, err := modron.validateResourceGroupNames(ctx, in.ResourceGroupNames)
-	if err != nil {
-		return nil, err
-	}
-	obsByGroupByRules := map[string]map[string][]*pb.Observation{}
-	oneWeekAgo := time.Now().Add(-time.Hour * 24 * 7)
-	obs, err := modron.storage.ListObservations(ctx, model.StorageFilter{
-		ResourceGroupNames: groups,
-		StartTime:          oneWeekAgo,
-		TimeOffset:         time.Since(oneWeekAgo),
-	})
-	if err != nil {
-		glog.Warningf("list observations: %v", err)
-		return nil, status.Error(codes.Internal, "failed listing observations")
-	}
-	for _, group := range groups {
-		obsByGroupByRules[group] = map[string][]*pb.Observation{}
-		for _, rule := range rules.GetRules() {
-			obsByGroupByRules[group][rule.Info().Name] = []*pb.Observation{}
-		}
-	}
-	for _, ob := range obs {
-		group := ob.Resource.ResourceGroupName
-		rule := ob.Name
-		if obsByGroupByRules[group] == nil {
-			obsByGroupByRules[group] = map[string][]*pb.Observation{}
-		}
-		obsByGroupByRules[group][rule] = append(
-			obsByGroupByRules[group][rule],
-			ob,
+func newServer(ctx context.Context) (*service.Modron, error) {
+	ctx, span := tracer.Start(ctx, "newServer")
+	defer span.End()
+	var st model.Storage
+	var err error
+	switch storage.Type(strings.ToLower(args.Storage)) {
+	case storage.Memory:
+		log.Warnf("using memory storage: this should never be used in production")
+		st = memstorage.New()
+	case storage.SQL:
+		log.Tracef("setting up SQL")
+		st, err = gormstorage.NewDB(
+			args.SQLBackendDriver,
+			args.SQLConnectionString,
+			gormstorage.Config{
+				BatchSize:     args.DbBatchSize,
+				LogAllQueries: args.LogAllSQLQueries,
+			},
 		)
-	}
-	res := []*pb.ResourceGroupObservationsPair{}
-	for name, ruleObs := range obsByGroupByRules {
-		val := []*pb.RuleObservationPair{}
-		for rule, obs := range ruleObs {
-			val = append(val, &pb.RuleObservationPair{
-				Rule:         rule,
-				Observations: obs,
-			})
+		if err != nil {
+			return nil, fmt.Errorf("sql storage creation: %w", err)
 		}
-		res = append(res, &pb.ResourceGroupObservationsPair{
-			ResourceGroupName: name,
-			RulesObservations: val,
+	default:
+		return nil, fmt.Errorf("invalid storage \"%s\" specified", args.Storage)
+	}
+
+	// Get Impact map
+	impactMap, err := getImpactMap(args.ImpactMap)
+	if err != nil {
+		return nil, fmt.Errorf("getImpactMap: %w", err)
+	}
+	if len(maps.Keys(impactMap)) == 0 {
+		log.Warn("Impact map is empty")
+	}
+
+	// Parse rule configs
+	ruleConfigs, err := parseRuleConfigs(args.RuleConfigs)
+	if err != nil {
+		return nil, fmt.Errorf("parseRuleConfigs: %w", err)
+	}
+
+	additionalAdminRoles := map[constants.Role]struct{}{}
+	for _, v := range args.AdditionalAdminRoles {
+		theRole := constants.ToRole(v)
+		additionalAdminRoles[theRole] = struct{}{}
+	}
+
+	log.Tracef("Purging incomplete operations")
+	if err := st.PurgeIncompleteOperations(ctx); err != nil {
+		log.Errorf("Purging incomplete operations: %v", err)
+	}
+
+	tagConfig := risk.TagConfig{
+		ImpactMap:    impactMap,
+		Environment:  args.TagEnvironment,
+		EmployeeData: args.TagEmployeeData,
+		CustomerData: args.TagCustomerData,
+	}
+
+	log.Tracef("Creating rule engine")
+	ruleEngine, err := engine.New(st, rules.GetRules(), ruleConfigs, args.ExcludedRules, tagConfig)
+	if err != nil {
+		return nil, fmt.Errorf("creating rule engine: %w", err)
+	}
+
+	log.Tracef("Creating collector and ACL checker")
+	coll, checker, err := getCollectorAndChecker(ctx, st, tagConfig)
+	if err != nil {
+		return nil, fmt.Errorf("getCollectorAndChecker: %w", err)
+	}
+
+	log.Tracef("Creating reqdepstate manager")
+	stateManager, err := reqdepstatemanager.New()
+	if err != nil {
+		return nil, fmt.Errorf("creating reqdepstatemanager: %w", err)
+	}
+
+	log.Tracef("Creating Notification Service")
+	var notificationSvc model.NotificationService
+	notificationSvcAddr := args.NotificationService
+	if notificationSvcAddr != "" {
+		notificationSvc, err = setupNotificationService(ctx, notificationSvcAddr)
+		if err != nil {
+			return nil, fmt.Errorf("unable to setup notification service: %w", err)
+		}
+	} else {
+		log.Tracef("Using lognotifier as notification service")
+		log.Infof("NotificationService argument is empty, logging instead")
+		notificationSvc = lognotifier.New()
+	}
+
+	labelToEmailRegexp, err := regexp.Compile(args.LabelToEmailRegexp)
+	if err != nil {
+		return nil, fmt.Errorf("regexp.Compile failed for contact label regex: %w", err)
+	}
+
+	return service.New(
+		checker,
+		args.CollectAndScanInterval,
+		coll,
+		args.NotificationInterval,
+		notificationSvc,
+		args.OrgSuffix,
+		ruleEngine,
+		args.SelfURL,
+		stateManager,
+		st,
+		additionalAdminRoles,
+		labelToEmailRegexp,
+		args.LabelToEmailSubst,
+	)
+}
+
+func parseRuleConfigs(configs string) (map[string]json.RawMessage, error) {
+	var ruleConfigs map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(configs), &ruleConfigs); err != nil {
+		return nil, fmt.Errorf("unable to decode rule configs: %w", err)
+	}
+	return ruleConfigs, nil
+}
+
+func getImpactMap(impactMapJSON string) (map[string]pb.Impact, error) {
+	var impactMap map[string]string
+	if err := json.Unmarshal([]byte(impactMapJSON), &impactMap); err != nil {
+		return nil, fmt.Errorf("unable to decode impact map: %w", err)
+	}
+	finalImpactMap := map[string]pb.Impact{}
+	for k, v := range impactMap {
+		impactValue, ok := pb.Impact_value[v]
+		if !ok {
+			return nil, fmt.Errorf("invalid impact value: %s", v)
+		}
+		finalImpactMap[k] = pb.Impact(impactValue)
+	}
+	return finalImpactMap, nil
+}
+
+func setupNotificationService(ctx context.Context, notSvcAddr string) (notSvc model.NotificationService, err error) {
+	log.Tracef("Using Nagatha as notification service")
+	var tokenSource oauth2.TokenSource
+	if args.IsE2EGrpcTest {
+		tokenSource = oauth2.StaticTokenSource(&oauth2.Token{
+			AccessToken: "e2e-test-token",
 		})
-	}
-	return &pb.ListObservationsResponse{
-		ResourceGroupsObservations: res,
-	}, nil
-}
-
-func (modron *modronService) CreateObservation(ctx context.Context, in *pb.CreateObservationRequest) (*pb.Observation, error) {
-	if in.Observation == nil {
-		return nil, status.Error(codes.InvalidArgument, "observation is nil")
-	}
-	if in.Observation.Name == "" {
-		return nil, status.Error(codes.InvalidArgument, "observation does not have a name")
-	}
-	if in.Observation.Resource == nil {
-		return nil, status.Error(codes.InvalidArgument, "resource to link observation with not defined")
-	}
-	if in.Observation.Remediation == nil || in.Observation.Remediation.Recommendation == "" {
-		return nil, status.Error(codes.InvalidArgument, "cannot create an observation without recommendation")
-	}
-	in.Observation.Timestamp = timestamppb.Now()
-	res, err := modron.storage.ListResources(ctx, model.StorageFilter{ResourceNames: []string{in.Observation.Resource.Name}})
-	if err != nil {
-		return nil, status.Errorf(codes.NotFound, "resource to link observation to not found: %v", err)
-	}
-	if len(res) != 1 {
-		return nil, status.Errorf(codes.FailedPrecondition, "found %d resources matching %+v", len(res), in.Observation.Resource)
-	}
-	in.Observation.Resource = res[0]
-	if obs, err := modron.storage.BatchCreateObservations(ctx, []*pb.Observation{in.Observation}); err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
 	} else {
-		if len(obs) != 1 {
-			return nil, status.Errorf(codes.Internal, "creation returned %d items", len(obs))
-		} else {
-			return obs[0], nil
+		tokenSource, err = idtoken.NewTokenSource(ctx, args.NotificationServiceClientID)
+		if err != nil {
+			return nil, fmt.Errorf("idtoken.NewTokenSource: %w", err)
 		}
 	}
-}
-
-func (modron *modronService) GetStatusCollectAndScan(ctx context.Context, in *pb.GetStatusCollectAndScanRequest) (*pb.GetStatusCollectAndScanResponse, error) {
-	collectStatus := modron.stateManager.GetCollectState(in.CollectId)
-	scanStatus := modron.stateManager.GetScanState(in.ScanId)
-	return &pb.GetStatusCollectAndScanResponse{
-		CollectStatus: collectStatus,
-		ScanStatus:    scanStatus,
-	}, nil
-}
-
-func (modron *modronService) GetNotificationException(ctx context.Context, req *pb.GetNotificationExceptionRequest) (*pb.NotificationException, error) {
-	ex, err := modron.validateUserAndGetException(ctx, req.Uuid)
+	notSvc, err = nagatha.New(notSvcAddr, args.SelfURL, tokenSource)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("nagatha service: %w", err)
 	}
-	return ex.ToProto(), err
+	return notSvc, nil
 }
 
-func (modron *modronService) CreateNotificationException(ctx context.Context, req *pb.CreateNotificationExceptionRequest) (*pb.NotificationException, error) {
-	if userEmail, err := modron.checker.GetValidatedUser(ctx); err != nil {
-		return nil, status.Error(codes.Unauthenticated, "failed authenticating request")
-	} else {
-		req.Exception.UserEmail = userEmail
-	}
-	ex, err := modron.notificationSvc.CreateException(ctx, model.ExceptionFromProto(req.Exception))
-	return ex.ToProto(), err
-}
-
-func (modron *modronService) UpdateNotificationException(ctx context.Context, req *pb.UpdateNotificationExceptionRequest) (*pb.NotificationException, error) {
-	if ex, err := modron.validateUserAndGetException(ctx, req.Exception.Uuid); err != nil {
-		return nil, err
-	} else {
-		req.Exception.UserEmail = ex.UserEmail
-	}
-	ex, err := modron.notificationSvc.UpdateException(ctx, model.ExceptionFromProto(req.Exception))
-	return ex.ToProto(), err
-}
-
-func (modron *modronService) DeleteNotificationException(ctx context.Context, req *pb.DeleteNotificationExceptionRequest) (*emptypb.Empty, error) {
-	if _, err := modron.validateUserAndGetException(ctx, req.Uuid); err != nil {
-		return nil, err
-	}
-	return &emptypb.Empty{}, modron.notificationSvc.DeleteException(ctx, req.Uuid)
-}
-
-func (modron *modronService) ListNotificationExceptions(ctx context.Context, req *pb.ListNotificationExceptionsRequest) (*pb.ListNotificationExceptionsResponse, error) {
-	if userEmail, err := modron.checker.GetValidatedUser(ctx); err != nil {
-		return nil, status.Error(codes.Unauthenticated, "failed authenticating request")
-	} else {
-		req.UserEmail = userEmail
-	}
-	ex, err := modron.notificationSvc.ListExceptions(ctx, req.UserEmail, req.PageSize, req.PageToken)
-	exList := []*pb.NotificationException{}
-	for _, e := range ex {
-		exList = append(exList, e.ToProto())
-	}
-	return &pb.ListNotificationExceptionsResponse{Exceptions: exList}, err
-}
-
-// TODO: Allow security admins to bypass the checks
-func (modron *modronService) validateUserAndGetException(ctx context.Context, notificationUuid string) (model.Exception, error) {
-	userEmail, err := modron.checker.GetValidatedUser(ctx)
-	if err != nil {
-		return model.Exception{}, status.Error(codes.Unauthenticated, "failed authenticating request")
-	}
-	if ex, err := modron.notificationSvc.GetException(ctx, notificationUuid); err != nil {
-		return model.Exception{}, err
-	} else if ex.UserEmail != userEmail {
-		return model.Exception{}, status.Error(codes.Unauthenticated, "failed authenticating request")
-	} else {
-		return ex, nil
-	}
-}
-
-func (modron *modronService) notificationsFromObservation(ctx context.Context, ob *pb.Observation) ([]model.Notification, error) {
-	rg, err := modron.storage.ListResources(ctx, model.StorageFilter{ResourceNames: []string{ob.Resource.ResourceGroupName}, Limit: 1})
-	if err != nil {
-		return nil, err
-	}
-	if len(rg) < 1 {
-		return nil, fmt.Errorf("no resource found %+v", ob.Resource.Uid)
-	}
-	if len(rg) > 1 {
-		glog.Warningf("multiple resources group found for %+v, using the first one", ob.Resource.Uid)
-	}
-	if rg[0].IamPolicy == nil {
-		glog.Warningf("no iam policy found for %s", rg[0].Name)
-	}
-	// We can have the same contacts in owners and labels, de-duplicate.
-	uniqueContacts := make(map[string]struct{}, 0)
-	for _, b := range rg[0].IamPolicy.Permissions {
-		for r := range constants.AdminRoles {
-			if strings.EqualFold(b.Role, r) {
-				for _, m := range b.Principals {
-					if strings.HasSuffix(m, orgSuffix) {
-						uniqueContacts[strings.TrimPrefix(m, constants.GCPUserAccountPrefix)] = struct{}{}
-					}
-				}
-			}
+func getCollectorAndChecker(ctx context.Context, st model.Storage, tagConfig risk.TagConfig) (c model.Collector, aclChecker model.Checker, err error) {
+	switch collector.Type(strings.ToLower(string(args.Collector))) {
+	case collector.Fake:
+		log.Warnf("Using fake collector")
+		c = gcpcollector.NewFake(ctx, st, tagConfig)
+		log.Warnf("Using fake ACL")
+		aclChecker = fakeacl.New()
+	case collector.Gcp:
+		log.Tracef("Creating GCP collector")
+		c, err = gcpcollector.New(
+			ctx,
+			st,
+			args.OrgID,
+			args.OrgSuffix,
+			args.AdditionalAdminRoles,
+			tagConfig,
+			args.AllowedSccCategories,
+		)
+		if err != nil {
+			return nil, nil, fmt.Errorf("NewGCPCollector: %w", err)
 		}
+		log.Tracef("Creating GCP ACL checker")
+		if aclChecker, err = gcpacl.New(ctx, c, gcpacl.Config{
+			AdminGroups:            args.AdminGroups,
+			CacheTimeout:           defaultCacheTimeout,
+			PersistentCache:        args.PersistentCache,
+			PersistentCacheTimeout: args.PersistentCacheTimeout,
+			SkipIap:                args.SkipIAP,
+		}); err != nil {
+			return nil, nil, fmt.Errorf("NewGcpChecker: %w", err)
+		}
+	default:
+		return nil, nil, fmt.Errorf("invalid collector \"%s\" specified, use one of: %s",
+			args.Collector, strings.Join(collector.ValidCollectors(), ", "))
 	}
+	return
+}
 
-	contacts := maps.Keys(uniqueContacts)
-	if len(contacts) < 1 {
-		return nil, fmt.Errorf("no contacts found for observation %q, resource group: %q", ob.Uid, ob.Resource.ResourceGroupName)
+func withCors() []grpcweb.Option {
+	return []grpcweb.Option{
+		grpcweb.WithOriginFunc(func(_ string) bool {
+			return true
+		}),
+		grpcweb.WithAllowedRequestHeaders([]string{"*"}),
 	}
-	notifications := make([]model.Notification, 0)
-	for _, c := range contacts {
-		notifications = append(notifications,
-			model.Notification{
-				SourceSystem: "modron",
-				Name:         ob.Name,
-				Recipient:    c,
-				Content:      ob.Remediation.Recommendation,
-				Interval:     notificationInterval,
-			})
-	}
-	return notifications, nil
 }

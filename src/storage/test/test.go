@@ -1,4 +1,4 @@
-// Package storage provides a storage backend
+// Package test is a collection of test utils for storage tests
 package test
 
 import (
@@ -8,8 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/types/known/structpb"
+
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
@@ -17,39 +20,42 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// this function checks if the two ResourceEntry objects are equal
+const (
+	oneDay = 24 * time.Hour
+)
+
 func AreEqualResources(t *testing.T, want []*pb.Resource, got []*pb.Resource) {
 	t.Helper()
-	sort := cmp.Transformer("sort", func(in []*pb.Resource) []*pb.Resource {
+	sortResources := cmp.Transformer("sort", func(in []*pb.Resource) []*pb.Resource {
 		out := append([]*pb.Resource{}, in...)
 		sort.SliceStable(out, func(i, j int) bool {
 			return out[i].Uid < out[j].Uid
 		})
 		return out
 	})
-	if diff := cmp.Diff(want, got, protocmp.Transform(), sort); diff != "" {
+	if diff := cmp.Diff(want, got, protocmp.Transform(), sortResources); diff != "" {
 		t.Errorf("unexpected diff (-want, +got): %v", diff)
 	}
 }
 
 func AreEqualObservations(t *testing.T, want []*pb.Observation, got []*pb.Observation) {
 	t.Helper()
-	sort := cmp.Transformer("sort", func(in []*pb.Observation) []*pb.Observation {
+	sortObservations := cmp.Transformer("sort", func(in []*pb.Observation) []*pb.Observation {
 		out := append([]*pb.Observation{}, in...)
 		sort.SliceStable(out, func(i, j int) bool {
 			return out[i].Uid < out[j].Uid
 		})
 		return out
 	})
-	if diff := cmp.Diff(want, got, protocmp.Transform(), sort); diff != "" {
+	if diff := cmp.Diff(want, got, protocmp.Transform(), sortObservations); diff != "" {
 		t.Errorf("unexpected diff (-want, +got): %v", diff)
 	}
 }
 
 // TODO: don't check length of list, but compare the actual returned arrays
-func TestStorageResource(t *testing.T, storage model.Storage) {
+func StorageResource(t *testing.T, storage model.Storage) {
 	ctx := context.Background()
-	collectionId := uuid.NewString()
+	collectionID := uuid.NewString()
 	testResourceName := fmt.Sprintf("test-%s", uuid.NewString())
 	testResourceName2 := fmt.Sprintf("test2-%s", uuid.NewString())
 	parentResourceName := fmt.Sprintf("test-parent-%s", uuid.NewString())
@@ -58,8 +64,8 @@ func TestStorageResource(t *testing.T, storage model.Storage) {
 		Name:              testResourceName,
 		Parent:            parentResourceName,
 		ResourceGroupName: resourceGroupName1,
-		CollectionUid:     collectionId,
-		Timestamp:         timestamppb.New(time.Now().Add(-time.Hour * 24)),
+		CollectionUid:     collectionID,
+		Timestamp:         timestamppb.New(time.Now().Add(-oneDay)),
 		Type: &pb.Resource_ApiKey{
 			ApiKey: &pb.APIKey{
 				Scopes: []string{"TEST1"},
@@ -72,8 +78,8 @@ func TestStorageResource(t *testing.T, storage model.Storage) {
 		Name:              testResourceName2,
 		Parent:            parentResourceName,
 		ResourceGroupName: resourceGroupName2,
-		CollectionUid:     collectionId,
-		Timestamp:         timestamppb.New(time.Now().Add(-time.Hour * 24)),
+		CollectionUid:     collectionID,
+		Timestamp:         timestamppb.New(time.Now().Add(-oneDay)),
 		Type: &pb.Resource_ApiKey{
 			ApiKey: &pb.APIKey{
 				Scopes: []string{"TEST2"},
@@ -81,34 +87,35 @@ func TestStorageResource(t *testing.T, storage model.Storage) {
 		},
 	}
 
-	testOps := []model.Operation{
+	now := time.Now()
+	testOps := []*pb.Operation{
 		{
-			ID:            collectionId,
+			Id:            collectionID,
 			ResourceGroup: resourceGroupName1,
-			OpsType:       "collection",
-			StatusTime:    time.Now(),
-			Status:        model.OperationStarted,
+			Type:          "collection",
+			StatusTime:    timestamppb.New(now),
+			Status:        pb.Operation_STARTED,
 		},
 		{
-			ID:            collectionId,
+			Id:            collectionID,
 			ResourceGroup: resourceGroupName2,
-			OpsType:       "collection",
-			StatusTime:    time.Now(),
-			Status:        model.OperationStarted,
+			Type:          "collection",
+			StatusTime:    timestamppb.New(now),
+			Status:        pb.Operation_STARTED,
 		},
 		{
-			ID:            collectionId,
+			Id:            collectionID,
 			ResourceGroup: resourceGroupName1,
-			OpsType:       "collection",
-			StatusTime:    time.Now().Add(time.Second * 60),
-			Status:        model.OperationCompleted,
+			Type:          "collection",
+			StatusTime:    timestamppb.New(now),
+			Status:        pb.Operation_COMPLETED,
 		},
 		{
-			ID:            collectionId,
+			Id:            collectionID,
 			ResourceGroup: resourceGroupName2,
-			OpsType:       "collection",
-			StatusTime:    time.Now().Add(time.Second * 60),
-			Status:        model.OperationCompleted,
+			Type:          "collection",
+			StatusTime:    timestamppb.New(now),
+			Status:        pb.Operation_COMPLETED,
 		},
 	}
 
@@ -176,8 +183,8 @@ func TestStorageResource(t *testing.T, storage model.Storage) {
 	if err != nil {
 		t.Errorf("ListResources(ctx, filter) error: %v", err)
 	}
-	if len(allResources) != 2 {
-		t.Errorf("len(allResources) got %d, want %d", len(allResources), 2)
+	if len(allResources) != 2 { //nolint:mnd
+		t.Errorf("len(allResources) got %d, want %d", len(allResources), 2) //nolint:mnd
 	}
 
 	// only get one element
@@ -218,8 +225,8 @@ func TestStorageResource(t *testing.T, storage model.Storage) {
 	if err != nil {
 		t.Errorf("ListResources(ctx, %v) error: %v", resourceNameFilter, err)
 	}
-	if len(allResources) != 2 {
-		t.Errorf("len(allResources) got %d, want %d", len(allResources), 2)
+	if len(allResources) != 2 { //nolint:mnd
+		t.Errorf("len(allResources) got %d, want %d", len(allResources), 2) //nolint:mnd
 	}
 
 	// filter non-existing resourceType
@@ -236,8 +243,8 @@ func TestStorageResource(t *testing.T, storage model.Storage) {
 	if err != nil {
 		t.Errorf("ListResources(ctx, %v) error: %v", resourceGroup1Filter, err)
 	}
-	if len(allResources) != 2 {
-		t.Errorf("len(allResources) got %d, want %d", len(allResources), 2)
+	if len(allResources) != 2 { //nolint:mnd
+		t.Errorf("len(allResources) got %d, want %d", len(allResources), 2) //nolint:mnd
 	}
 
 	allResources, err = storage.ListResources(ctx, resourceGroup2AndNameFilter)
@@ -249,7 +256,7 @@ func TestStorageResource(t *testing.T, storage model.Storage) {
 	}
 }
 
-func TestStorageObservation(t *testing.T, storage model.Storage) {
+func StorageObservation(t *testing.T, storage model.Storage) {
 	ctx := context.Background()
 	parentResourceName := "test-parent"
 	testResourceName := "testResourceName"
@@ -284,19 +291,27 @@ func TestStorageObservation(t *testing.T, storage model.Storage) {
 	}
 
 	testObservation1 := &pb.Observation{
-		Uid:       "observation1",
-		Resource:  testResource,
-		Name:      "testObservation1",
-		ScanUid:   firstScanUID,
-		Timestamp: timestamppb.Now(),
+		Uid:         "observation1",
+		ResourceRef: utils.GetResourceRef(testResource),
+		Name:        "testObservation1",
+		ScanUid:     utils.RefOrNull(firstScanUID),
+		Timestamp:   timestamppb.Now(),
+		Source:      pb.Observation_SOURCE_MODRON,
+		Severity:    pb.Severity_SEVERITY_HIGH,
+		RiskScore:   pb.Severity_SEVERITY_HIGH,
+		Impact:      pb.Impact_IMPACT_MEDIUM,
 	}
 
 	testObservation2 := &pb.Observation{
-		Uid:       "observation2",
-		Resource:  testResource2,
-		Name:      "testObservation2",
-		ScanUid:   firstScanUID,
-		Timestamp: timestamppb.Now(),
+		Uid:         "observation2",
+		ResourceRef: utils.GetResourceRef(testResource2),
+		Name:        "testObservation2",
+		ScanUid:     utils.RefOrNull(firstScanUID),
+		Timestamp:   timestamppb.Now(),
+		Source:      pb.Observation_SOURCE_MODRON,
+		Severity:    pb.Severity_SEVERITY_HIGH,
+		RiskScore:   pb.Severity_SEVERITY_HIGH,
+		Impact:      pb.Impact_IMPACT_MEDIUM,
 	}
 
 	// Filters
@@ -305,38 +320,43 @@ func TestStorageObservation(t *testing.T, storage model.Storage) {
 		ResourceGroupNames: []string{testResourceGroupName2},
 	}
 
-	testOps := []model.Operation{
+	testOps := []*pb.Operation{
 		{
-			ID:            firstScanUID,
+			Id:            firstScanUID,
 			ResourceGroup: testResourceGroupName1,
-			OpsType:       "scan",
-			StatusTime:    firstScanTime,
-			Status:        model.OperationStarted,
+			Type:          "scan",
+			StatusTime:    timestamppb.New(firstScanTime),
+			Status:        pb.Operation_STARTED,
 		},
 		{
-			ID:            firstScanUID,
+			Id:            firstScanUID,
 			ResourceGroup: testResourceGroupName2,
-			OpsType:       "scan",
-			StatusTime:    firstScanTime,
-			Status:        model.OperationStarted,
+			Type:          "scan",
+			StatusTime:    timestamppb.New(firstScanTime),
+			Status:        pb.Operation_STARTED,
 		},
 		{
-			ID:            firstScanUID,
+			Id:            firstScanUID,
 			ResourceGroup: testResourceGroupName1,
-			OpsType:       "scan",
-			StatusTime:    firstScanTime,
-			Status:        model.OperationCompleted,
+			Type:          "scan",
+			StatusTime:    timestamppb.New(firstScanTime),
+			Status:        pb.Operation_COMPLETED,
 		},
 		{
-			ID:            firstScanUID,
+			Id:            firstScanUID,
 			ResourceGroup: testResourceGroupName2,
-			OpsType:       "scan",
-			StatusTime:    firstScanTime,
-			Status:        model.OperationCompleted,
+			Type:          "scan",
+			StatusTime:    timestamppb.New(firstScanTime),
+			Status:        pb.Operation_COMPLETED,
 		},
 	}
 
 	addOps(ctx, t, storage, testOps)
+
+	_, err := storage.BatchCreateResources(ctx, []*pb.Resource{testResource, testResource2})
+	if err != nil {
+		t.Fatalf("BatchCreateResources: %v", err)
+	}
 
 	// should not error with empty storage
 	allObservations, err := storage.ListObservations(ctx, model.StorageFilter{
@@ -392,30 +412,32 @@ func TestStorageObservation(t *testing.T, storage model.Storage) {
 	AreEqualObservations(t, []*pb.Observation{testObservation2}, allObservations)
 
 	// Run a second scan
-	secondScanOps := []model.Operation{
+	secondScanOps := []*pb.Operation{
 		{
-			ID:            secondScanUID,
+			Id:            secondScanUID,
 			ResourceGroup: testResourceGroupName1,
-			OpsType:       "scan",
-			StatusTime:    secondScanTime,
-			Status:        model.OperationStarted,
+			Type:          "scan",
+			StatusTime:    timestamppb.New(secondScanTime),
+			Status:        pb.Operation_STARTED,
 		},
 		{
-			ID:            secondScanUID,
+			Id:            secondScanUID,
 			ResourceGroup: testResourceGroupName1,
-			OpsType:       "scan",
-			StatusTime:    secondScanTime,
-			Status:        model.OperationCompleted,
+			Type:          "scan",
+			StatusTime:    timestamppb.New(secondScanTime),
+			Status:        pb.Operation_COMPLETED,
 		},
 	}
 	addOps(ctx, t, storage, secondScanOps)
 
 	testObservationSecondScan := &pb.Observation{
-		Uid:       "observation3",
-		Resource:  testResource,
-		Name:      "testObservationSecondScan",
-		ScanUid:   secondScanUID,
-		Timestamp: timestamppb.Now(),
+		Uid:         "observation3",
+		ResourceRef: utils.GetResourceRef(testResource),
+		Name:        "testObservationSecondScan",
+		ScanUid:     utils.RefOrNull(secondScanUID),
+		Timestamp:   timestamppb.Now(),
+		Source:      pb.Observation_SOURCE_MODRON,
+		Severity:    pb.Severity_SEVERITY_LOW,
 	}
 	_, err = storage.BatchCreateObservations(ctx, []*pb.Observation{testObservationSecondScan})
 	if err != nil {
@@ -434,8 +456,170 @@ func TestStorageObservation(t *testing.T, storage model.Storage) {
 	AreEqualObservations(t, wantObs, gotObs)
 }
 
-func addOps(ctx context.Context, t *testing.T, storage model.Storage, ops []model.Operation) {
-	if err := storage.AddOperationLog(context.Background(), ops); err != nil {
+func StorageListObservations2(t *testing.T, storage model.Storage) {
+	ctx := context.Background()
+	scanUUID := uuid.NewString()
+	collectionUUID := uuid.NewString()
+	startTime := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	endTime := startTime.Add(time.Minute)
+
+	addOps(ctx, t, storage, []*pb.Operation{
+		{
+			Id:            collectionUUID,
+			ResourceGroup: "projects/test-1",
+			// IMPORTANT: We use "collect" here because the collection of observations from SCC
+			// is part of the "collection" step - thus we need to make sure that the storage is aware of the fact
+			// that observations can either come from a "collection" or a "scan" (and they should be merged).
+			Type:       "collection",
+			StatusTime: timestamppb.New(startTime),
+			Status:     pb.Operation_STARTED,
+			Reason:     "",
+		},
+		{
+			Id:            scanUUID,
+			ResourceGroup: "projects/test-1",
+			// IMPORTANT: We use "scan" here because we pretend that we've run a Modron scan that generated
+			// Modron observations, and these appear only after a "scan" operation.
+			Type:       "scan",
+			StatusTime: timestamppb.New(startTime),
+			Status:     pb.Operation_STARTED,
+			Reason:     "",
+		},
+	})
+	flushOps(ctx, t, storage)
+
+	// Create a resource
+	resourceUUID := uuid.NewString()
+	rsrc := &pb.Resource{
+		Uid:  resourceUUID,
+		Name: "custom-resource",
+		Type: &pb.Resource_ApiKey{ApiKey: &pb.APIKey{Scopes: []string{"this", "is", "an", "example"}}},
+	}
+	_, err := storage.BatchCreateResources(ctx, []*pb.Resource{rsrc})
+	if err != nil {
+		t.Fatalf("BatchCreateResources: %v", err)
+	}
+
+	// Create an observation
+	scanTs := startTime.Add(10 * time.Second) //nolint:mnd
+	originalModronObs := &pb.Observation{
+		Uid:           uuid.NewString(),
+		ScanUid:       utils.RefOrNull(scanUUID),
+		Timestamp:     timestamppb.New(scanTs),
+		Name:          "MY_CUSTOM_OBSERVATION",
+		ExpectedValue: structpb.NewStringValue("expected"),
+		ObservedValue: structpb.NewStringValue("observed"),
+		Remediation: &pb.Remediation{
+			Description:    "Desc",
+			Recommendation: "Recommendation",
+		},
+		ResourceRef: &pb.ResourceRef{
+			Uid:           &resourceUUID,
+			GroupName:     "projects/test-1",
+			ExternalId:    utils.RefOrNull("//cloud.google.com/example"),
+			CloudPlatform: pb.CloudPlatform_GCP,
+		},
+
+		Source:    pb.Observation_SOURCE_MODRON,
+		Severity:  pb.Severity_SEVERITY_INFO,
+		Impact:    pb.Impact_IMPACT_MEDIUM,
+		RiskScore: pb.Severity_SEVERITY_INFO,
+	}
+
+	unknownSeverityObs := &pb.Observation{
+		Uid:           uuid.NewString(),
+		ScanUid:       utils.RefOrNull(scanUUID),
+		Timestamp:     timestamppb.New(scanTs),
+		Name:          "UNKNOWN_SEVERITY_OBSERVATIONS_WILL_NEVER_SHOW_UP",
+		ExpectedValue: structpb.NewStringValue("expected"),
+		ObservedValue: structpb.NewStringValue("observed"),
+		Remediation: &pb.Remediation{
+			Description:    "Desc",
+			Recommendation: "Recommendation",
+		},
+		ResourceRef: &pb.ResourceRef{
+			Uid:           &resourceUUID,
+			GroupName:     "projects/test-1",
+			ExternalId:    utils.RefOrNull("//cloud.google.com/example"),
+			CloudPlatform: pb.CloudPlatform_GCP,
+		},
+
+		Source:    pb.Observation_SOURCE_MODRON,
+		Severity:  pb.Severity_SEVERITY_UNKNOWN,
+		Impact:    pb.Impact_IMPACT_HIGH,
+		RiskScore: pb.Severity_SEVERITY_UNKNOWN,
+	}
+
+	sccObs := &pb.Observation{
+		Uid:           uuid.NewString(),
+		CollectionId:  utils.RefOrNull(collectionUUID),
+		Timestamp:     timestamppb.New(scanTs),
+		Name:          "GCP_STORAGE_BUCKET_READABLE",
+		ExpectedValue: nil,
+		ObservedValue: nil,
+		Remediation: &pb.Remediation{
+			Description:    "A world readable GCP Storage bucket was discovered which may contain potentially sensitive data.",
+			Recommendation: "Investigate whether this bucket should be readable, and if not, adjust the permissions.",
+		},
+		ResourceRef: &pb.ResourceRef{
+			Uid:           nil,
+			GroupName:     "projects/test-1",
+			ExternalId:    utils.RefOrNull("//storage.googleapis.com/test-dev-example-public"),
+			CloudPlatform: pb.CloudPlatform_GCP,
+		},
+		ExternalId: utils.RefOrNull("//securitycenter.googleapis.com/projects/12345/sources/123/findings/42000000"),
+		Source:     pb.Observation_SOURCE_SCC,
+		Category:   pb.Observation_CATEGORY_MISCONFIGURATION,
+		Severity:   pb.Severity_SEVERITY_LOW,
+		Impact:     pb.Impact_IMPACT_HIGH,
+		RiskScore:  pb.Severity_SEVERITY_MEDIUM,
+	}
+
+	listObs := []*pb.Observation{sccObs, originalModronObs, unknownSeverityObs}
+	_, err = storage.BatchCreateObservations(ctx, listObs)
+	if err != nil {
+		t.Fatalf("BatchCreateObservations(ctx, %v) error: %v", listObs, err)
+	}
+	addOps(ctx, t, storage, []*pb.Operation{
+		{
+			Id:            collectionUUID,
+			ResourceGroup: "projects/test-1",
+			Type:          "collection",
+			StatusTime:    timestamppb.New(endTime),
+			Status:        pb.Operation_COMPLETED,
+			Reason:        "",
+		},
+		{
+			Id:            scanUUID,
+			ResourceGroup: "projects/test-1",
+			Type:          "scan",
+			StatusTime:    timestamppb.New(endTime),
+			Status:        pb.Operation_COMPLETED,
+			Reason:        "",
+		},
+	})
+	flushOps(ctx, t, storage)
+
+	// Sorted by severity
+	want := []*pb.Observation{sccObs, originalModronObs}
+	got, err := storage.ListObservations(ctx, model.StorageFilter{})
+	if err != nil {
+		t.Errorf("ListObservations(ctx, %v) error: %v", model.StorageFilter{}, err)
+	}
+
+	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+		t.Errorf("unexpected diff (-want, +got): %v", diff)
+	}
+}
+
+func flushOps(ctx context.Context, t *testing.T, storage model.Storage) {
+	if err := storage.FlushOpsLog(ctx); err != nil {
+		t.Fatalf("Flushops: %v", err)
+	}
+}
+
+func addOps(ctx context.Context, t *testing.T, storage model.Storage, ops []*pb.Operation) {
+	if err := storage.AddOperationLog(ctx, ops); err != nil {
 		t.Fatalf("AddOperation unexpected error: %v", err)
 	}
 	if err := storage.FlushOpsLog(ctx); err != nil {

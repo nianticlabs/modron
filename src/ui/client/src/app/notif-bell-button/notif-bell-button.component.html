@@ -1,0 +1,36 @@
+<div class="notification-bell-button">
+  <div
+    *ngIf="observation !== undefined &&
+        (
+          (this.notification.exceptions$ | async)!
+          | filterExceptions : this.exceptionNameFromObservation(observation)
+        ).length > 0;
+        then has_exceptions;
+        else has_no_exceptions
+      "
+  ></div>
+  <ng-template #has_exceptions>
+    <mat-icon
+      *ngIf="observation !== undefined"
+      [matBadge]="
+          (
+            (this.notification.exceptions$ | async)!
+            | filterExceptions : this.exceptionNameFromObservation(observation)
+          ).length
+        "
+      matBadgeColor="warn"
+      matTooltip="Edit the exception"
+      (click)="this.notifyToggle(observation)"
+      class="notifications-toggle edit-exception"
+    >edit_notifications</mat-icon>
+  </ng-template>
+  <ng-template #has_no_exceptions>
+    <mat-icon
+      *ngIf="observation !== undefined"
+      matTooltip="Add a new exception"
+      (click)="this.notifyToggle(observation)"
+      class="notifications-toggle add-exception"
+    >notifications_off
+    </mat-icon>
+  </ng-template>
+</div>

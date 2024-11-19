@@ -1,0 +1,21 @@
+.severity-container {
+  display: grid;
+  grid-template-columns: repeat(8, 50px);
+  row-gap: 10px;
+}
+
+.rg-container {
+  display: grid;
+  padding: 10px;
+  grid-template-columns: repeat(4, 300px);
+  column-gap: 10px;
+  row-gap: 10px;
+}
+
+.observation-dialog {
+  width: 800px;
+  border: 1px solid #333;
+  padding: 10px;
+  border-radius: 5px;
+  margin: 16px;
+}

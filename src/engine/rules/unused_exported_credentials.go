@@ -6,21 +6,27 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"github.com/nianticlabs/modron/src/common"
-	"github.com/nianticlabs/modron/src/constants"
+
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 )
 
 const (
-	UnusedExportedCredentials = "UNUSED_EXPORTED_CREDENTIALS"
+	unusedExportedCredentials = "UNUSED_EXPORTED_CREDENTIALS" //nolint:gosec
 	// If you increase this value, also fetch the metric over a longer timeframe in the collector.
 	oldestUsageVerificationMonths = 3
+	sevenDays                     = 7 * time.Hour * 24
 )
 
-var oldestUsage = time.Now().Add(time.Duration(-oldestUsageVerificationMonths) * time.Hour * 24 * 30)
+const (
+	oneMonth = time.Hour * 24 * 30
+)
+
+var oldestUsage = time.Now().Add(time.Duration(-oldestUsageVerificationMonths) * oneMonth)
 
 type UnusedExportedCredentialsRule struct {
 	info model.RuleInfo
@@ -33,42 +39,47 @@ func init() {
 func NewUnusedExportedCredentialsRule() model.Rule {
 	return &UnusedExportedCredentialsRule{
 		info: model.RuleInfo{
-			Name: UnusedExportedCredentials,
-			AcceptedResourceTypes: []string{
-				common.ResourceExportedCredentials,
+			Name: unusedExportedCredentials,
+			AcceptedResourceTypes: []proto.Message{
+				&pb.ExportedCredentials{},
 			},
 		},
 	}
 }
 
-func (r *UnusedExportedCredentialsRule) Check(ctx context.Context, rsrc *pb.Resource) ([]*pb.Observation, []error) {
+func (r *UnusedExportedCredentialsRule) Check(_ context.Context, _ model.Engine, rsrc *pb.Resource) ([]*pb.Observation, []error) {
 	ec := rsrc.GetExportedCredentials()
-	obs := []*pb.Observation{}
+	var obs []*pb.Observation
 	if ec.LastUsage == nil {
 		// If there is no last usage value, we don't report anything.
 		return []*pb.Observation{}, []error{}
 	}
-	if ec.LastUsage.AsTime().Before(oldestUsage) {
+	if time.Since(ec.CreationDate.AsTime()) > sevenDays && ec.LastUsage.AsTime().Before(oldestUsage) {
 		ob := &pb.Observation{
 			Uid:           uuid.NewString(),
 			Timestamp:     timestamppb.Now(),
-			Resource:      rsrc,
+			ResourceRef:   utils.GetResourceRef(rsrc),
 			Name:          r.Info().Name,
 			ExpectedValue: structpb.NewStringValue(fmt.Sprintf("%s <", oldestUsage.Format(time.RFC3339))),
 			ObservedValue: structpb.NewStringValue(ec.LastUsage.AsTime().Format(time.RFC3339)),
 			Remediation: &pb.Remediation{
 				Description: fmt.Sprintf(
-					"Exported key [%q](https://console.cloud.google.com/apis/credentials?project=%s) has not been used in the last %d months",
-					getGcpReadableResourceName(rsrc.Name),
-					constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
+					"Exported key `%s` of [%q](https://console.cloud.google.com/iam-admin/serviceaccounts/details/%s/keys?project=%s) has not been used in the last %d months",
+					utils.GetKeyID(rsrc.Name),
+					utils.GetServiceAccountNameFromKeyRef(rsrc.Name),
+					utils.GetServiceAccountNameFromKeyRef(rsrc.Name),
+					utils.StripProjectsPrefix(rsrc.ResourceGroupName),
 					oldestUsageVerificationMonths,
 				),
 				Recommendation: fmt.Sprintf(
-					"Consider deleting the exported key [%q](https://console.cloud.google.com/apis/credentials?project=%s), which is no longer in use",
-					getGcpReadableResourceName(rsrc.Name),
-					constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
+					"Consider deleting the exported key `%s` of [%q](https://console.cloud.google.com/iam-admin/serviceaccounts/details/%s/keys?project=%s) which is no longer in use",
+					utils.GetKeyID(rsrc.Name),
+					utils.GetServiceAccountNameFromKeyRef(rsrc.Name),
+					utils.GetServiceAccountNameFromKeyRef(rsrc.Name),
+					utils.StripProjectsPrefix(rsrc.ResourceGroupName),
 				),
 			},
+			Severity: pb.Severity_SEVERITY_HIGH,
 		}
 		obs = append(obs, ob)
 	}

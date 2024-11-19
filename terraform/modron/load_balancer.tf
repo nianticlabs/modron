@@ -23,6 +23,7 @@ resource "google_compute_backend_service" "modron_grpc_web" {
     group = google_compute_region_network_endpoint_group.grpc_web_neg.self_link
   }
   iap {
+    enabled              = true
     oauth2_client_id     = google_iap_client.project_client.client_id
     oauth2_client_secret = google_iap_client.project_client.secret
   }
@@ -44,6 +45,7 @@ resource "google_compute_backend_service" "modron_ui" {
     group = google_compute_region_network_endpoint_group.ui_neg.self_link
   }
   iap {
+    enabled              = true
     oauth2_client_id     = google_iap_client.project_client.client_id
     oauth2_client_secret = google_iap_client.project_client.secret
   }

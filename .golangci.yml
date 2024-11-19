@@ -1,18 +1,34 @@
 linters:
   disable-all: true
   enable:
-    - deadcode
+    - contextcheck
     - errcheck
+    - errorlint
+    - gocritic
+    - mnd
+    - gosec
     - gosimple
     - govet
     - ineffassign
+    - misspell
+    - nestif
+    - nilerr
+    - nilnil
+    - revive
     - staticcheck
-    - structcheck
     - typecheck
     - unused
-    - varcheck
+    - wastedassign
 
+issues:
+  exclude-dirs:
+    - "terraform"
 run:
   timeout: 5m
-  skip-dirs:
-    - "terraform"
+
+output:
+  formats:
+    - format: colored-line-number
+      path: stdout
+    - format: junit-xml
+      path: modron-lint.xml

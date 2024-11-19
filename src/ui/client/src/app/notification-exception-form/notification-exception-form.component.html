@@ -60,12 +60,11 @@
     </form>
   </mat-dialog-content>
   <mat-dialog-actions align="end">
-    <button mat-button mat-dialog-close>Cancel</button>
+    <button mat-button [mat-dialog-close]="false">Cancel</button>
     <button
       mat-button
       type="submit"
       form="form"
-      [mat-dialog-close]="true"
       color="primary"
       [disabled]="!formGroup.valid"
     >

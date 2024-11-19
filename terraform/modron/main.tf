@@ -1,8 +1,12 @@
 provider "google" {
   project      = var.project
-  region       = substr(var.zone, 0, length(var.zone) - 2)
+  region       = local.region
   access_token = data.google_service_account_access_token.sa.access_token
   zone         = var.zone
+}
+
+locals {
+  region = substr(var.zone, 0, length(var.zone) - 2)
 }
 
 resource "google_compute_ssl_policy" "modern_TLS_policy" {

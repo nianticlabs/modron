@@ -40,16 +40,10 @@
   }
 
   .app-resourcegroup-header {
-    display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 10px;
     flex: 1;
-    background-color: rgb(239, 239, 239);
-
-    h1 {
-      margin: 5px 40px;
-    }
+    margin-top: 24px;
   }
 }
 
@@ -113,5 +107,77 @@
 
   svg:hover {
     fill: rgb(64, 64, 64);
+  }
+
+  .mat-column-riskScore {
+    max-width: 80px;
+  }
+
+  .mat-column-category {
+    max-width: 350px;
+  }
+
+  .mat-column-shortDesc {
+    min-width: 30%;
+  }
+
+  .mat-column-shortDesc, .mat-column-category {
+    max-height: 1em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+
+    div {
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  .mat-column-actions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    justify-items: center;
+    max-width: 100px;
+
+    > * {
+      cursor: pointer;
+    }
+  }
+}
+
+.observation-card {
+  $margin: 20px;
+  margin: $margin 0 $margin 0;
+  padding: 10px;
+}
+
+.observation-card-header {
+  margin-bottom: 1em;
+}
+
+.observation-card-title {
+  display: flex;
+  flex-basis: content;
+  align-items: center;
+
+  a.more-info {
+    display: block;
+    height: 24px;
+    margin-left: 8px;
+  }
+}
+
+.observation-details {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+}
+
+.observation-subtitle {
+  &.has-observations {
+    color: #da1e28;
   }
 }

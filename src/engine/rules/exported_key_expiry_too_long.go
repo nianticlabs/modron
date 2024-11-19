@@ -6,12 +6,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"github.com/nianticlabs/modron/src/common"
+
 	"github.com/nianticlabs/modron/src/constants"
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 )
 
 const (
@@ -31,14 +33,14 @@ func NewExportedKeyIsTooOldRule() model.Rule {
 	return &ExportedKeyIsTooOldRule{
 		info: model.RuleInfo{
 			Name: ExportedKeyIsTooOld,
-			AcceptedResourceTypes: []string{
-				common.ResourceExportedCredentials,
+			AcceptedResourceTypes: []proto.Message{
+				&pb.ExportedCredentials{},
 			},
 		},
 	}
 }
 
-func (r *ExportedKeyIsTooOldRule) Check(ctx context.Context, rsrc *pb.Resource) ([]*pb.Observation, []error) {
+func (r *ExportedKeyIsTooOldRule) Check(_ context.Context, _ model.Engine, rsrc *pb.Resource) ([]*pb.Observation, []error) {
 	expiryMonths := 6
 	ec := rsrc.GetExportedCredentials()
 	obs := []*pb.Observation{}
@@ -47,7 +49,7 @@ func (r *ExportedKeyIsTooOldRule) Check(ctx context.Context, rsrc *pb.Resource) 
 		ob := &pb.Observation{
 			Uid:           uuid.NewString(),
 			Timestamp:     timestamppb.Now(),
-			Resource:      rsrc,
+			ResourceRef:   utils.GetResourceRef(rsrc),
 			Name:          r.Info().Name,
 			ExpectedValue: structpb.NewStringValue("later creation date"),
 			ObservedValue: structpb.NewStringValue(ec.CreationDate.AsTime().Format(timeFormat)),
@@ -64,6 +66,7 @@ func (r *ExportedKeyIsTooOldRule) Check(ctx context.Context, rsrc *pb.Resource) 
 					expiryMonths,
 				),
 			},
+			Severity: pb.Severity_SEVERITY_MEDIUM,
 		}
 		obs = append(obs, ob)
 

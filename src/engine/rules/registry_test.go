@@ -4,8 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
 )
 
 type TestRule struct {
@@ -16,12 +18,12 @@ func NewTestRule(name string) *TestRule {
 	return &TestRule{
 		info: model.RuleInfo{
 			Name:                  name,
-			AcceptedResourceTypes: []string{},
+			AcceptedResourceTypes: []proto.Message{},
 		},
 	}
 }
 
-func (r *TestRule) Check(ctx context.Context, rsrc *pb.Resource) ([]*pb.Observation, []error) {
+func (r *TestRule) Check(context.Context, model.Engine, *pb.Resource) ([]*pb.Observation, []error) {
 	return []*pb.Observation{{}}, nil
 }
 

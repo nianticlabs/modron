@@ -3,25 +3,24 @@ package gcpcollector
 import (
 	"github.com/nianticlabs/modron/src/common"
 	"github.com/nianticlabs/modron/src/constants"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
 
 	"golang.org/x/net/context"
 )
 
-func (collector *GCPCollector) ListSpannerDatabases(ctx context.Context, resourceGroup *pb.Resource) ([]*pb.Resource, error) {
-	name := constants.ResourceWithProjectsPrefix(resourceGroup.Name)
+func (collector *GCPCollector) ListSpannerDatabases(ctx context.Context, rgName string) (resources []*pb.Resource, err error) {
+	name := constants.ResourceWithProjectsPrefix(rgName)
 	dbs, err := collector.api.ListSpannerDatabases(ctx, name)
 	if err != nil {
 		return nil, err
 	}
-	resources := []*pb.Resource{}
 	for _, database := range dbs {
 		dbResource := &pb.Resource{
 			// TODO: Collect IAM Policy
-			Uid:               common.GetUUID(3),
-			ResourceGroupName: resourceGroup.Name,
+			Uid:               common.GetUUID(uuidGenRetries),
+			ResourceGroupName: rgName,
 			Name:              database.Name,
-			Parent:            resourceGroup.Name,
+			Parent:            rgName,
 			Type: &pb.Resource_Database{
 				Database: &pb.Database{
 					Type:       "spanner",

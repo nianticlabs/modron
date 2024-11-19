@@ -1,0 +1,53 @@
+version: '3'
+
+services:
+  postgres_db:
+    container_name: postgres_db
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: "modron"
+      POSTGRES_PASSWORD: "modron"
+      POSTGRES_DB: "modron"
+      PGDATA: "/tmp/"
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U modron"]
+      interval: 1s
+      timeout: 2s
+      retries: 5
+    tmpfs:
+      - /tmp
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.59
+    ports:
+      - "16686:16686"
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+      COLLECTOR_OTLP_GRPC_HOST_PORT: 0.0.0.0:4317
+    networks:
+      - otel
+
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - --web.enable-remote-write-receiver
+    ports:
+      - "9090:9090"
+    networks:
+      - otel
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.108.0
+    command:
+      - --config=/etc/otel/config.yaml
+    ports:
+      - "4317:4317"
+    volumes:
+      - ./otel/config:/etc/otel
+    networks:
+      - otel
+networks:
+  otel: {}

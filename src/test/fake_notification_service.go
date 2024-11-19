@@ -1,6 +1,6 @@
 package e2e
 
-import "github.com/nianticlabs/modron/src/pb"
+import pb "github.com/nianticlabs/modron/src/proto/generated"
 
 func New() pb.NotificationServiceServer {
 	return newFakeServer()

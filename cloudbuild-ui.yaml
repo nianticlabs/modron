@@ -1,0 +1,12 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - --tag=us-central1-docker.pkg.dev/$PROJECT_ID/modron/modron-ui:$_TAG_REF_1
+      - --tag=us-central1-docker.pkg.dev/$PROJECT_ID/modron/modron-ui:$_TAG_REF_2
+      - -f
+      - ./src/ui/Dockerfile
+      - .
+images:
+  - "us-central1-docker.pkg.dev/$PROJECT_ID/modron/modron-ui:$_TAG_REF_1"
+  - "us-central1-docker.pkg.dev/$PROJECT_ID/modron/modron-ui:$_TAG_REF_2"

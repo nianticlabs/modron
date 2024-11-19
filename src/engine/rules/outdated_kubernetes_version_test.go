@@ -4,14 +4,27 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/types/known/structpb"
+
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 )
 
 func TestOutdatedKubernetesVersionDetection(t *testing.T) {
+	clusterWithOutdatedNodesVersion := &pb.Resource{
+		Name:              "cluster-with-outdated-nodes-version",
+		Parent:            testProjectName,
+		ResourceGroupName: testProjectName,
+		IamPolicy:         &pb.IamPolicy{},
+		Type: &pb.Resource_KubernetesCluster{
+			KubernetesCluster: &pb.KubernetesCluster{
+				PrivateCluster: true,
+				MasterVersion:  "1.27.10-gke.600",
+				NodesVersion:   "1.15.10-gke.600",
+			},
+		},
+	}
 	resources := []*pb.Resource{
 		{
 			Name:              testProjectName,
@@ -35,36 +48,22 @@ func TestOutdatedKubernetesVersionDetection(t *testing.T) {
 				},
 			},
 		},
-		{
-			Name:              "cluster-with-outdated-nodes-version",
-			Parent:            testProjectName,
-			ResourceGroupName: testProjectName,
-			IamPolicy:         &pb.IamPolicy{},
-			Type: &pb.Resource_KubernetesCluster{
-				KubernetesCluster: &pb.KubernetesCluster{
-					PrivateCluster: true,
-					MasterVersion:  "1.27.10-gke.600",
-					NodesVersion:   "1.15.10-gke.600",
-				},
-			},
-		},
+		clusterWithOutdatedNodesVersion,
 	}
 
 	want := []*pb.Observation{
 		{
-			Name: OutDatedKubernetesVersion,
-			Resource: &pb.Resource{
-				Name: "cluster-with-outdated-nodes-version",
-			},
+			Name:          OutDatedKubernetesVersion,
+			ResourceRef:   utils.GetResourceRef(clusterWithOutdatedNodesVersion),
 			ExpectedValue: structpb.NewStringValue(fmt.Sprintf("version > %.2f", currentK8sVersion)),
 			ObservedValue: structpb.NewStringValue("1.15.10-gke.600"),
+			Remediation: &pb.Remediation{
+				Description:    "Cluster [\"cluster-with-outdated-nodes-version\"](https://console.cloud.google.com/kubernetes/list/overview?project=project-0) uses an outdated Kubernetes version",
+				Recommendation: "Update the Kubernetes version on cluster [\"cluster-with-outdated-nodes-version\"](https://console.cloud.google.com/kubernetes/list/overview?project=project-0) to at least 1.27. For more details on this process, see [this article](https://cloud.google.com/kubernetes-engine/docs/how-to/upgrading-a-cluster)",
+			},
+			Severity: pb.Severity_SEVERITY_HIGH,
 		},
 	}
 
-	got := TestRuleRun(t, resources, []model.Rule{NewOutDatedKubernetesVersionRule()})
-
-	// Check that the observations are correct.
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
-		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
-	}
+	TestRuleRun(t, resources, []model.Rule{NewOutDatedKubernetesVersionRule()}, want)
 }

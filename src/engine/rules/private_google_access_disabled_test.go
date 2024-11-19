@@ -3,16 +3,26 @@ package rules
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestCheckDetectsPrivateGoogleAccessDisabled(t *testing.T) {
+	networkNoPrivateAccess := &pb.Resource{
+		Name:              "network-no-private-access",
+		Parent:            testProjectName,
+		ResourceGroupName: testProjectName,
+		IamPolicy:         &pb.IamPolicy{},
+		Type: &pb.Resource_Network{
+			Network: &pb.Network{
+				Ips:                      []string{"8.8.4.4"},
+				GcpPrivateGoogleAccessV4: false,
+			},
+		},
+	}
 	resources := []*pb.Resource{
 		{
 			Name:              testProjectName,
@@ -23,18 +33,7 @@ func TestCheckDetectsPrivateGoogleAccessDisabled(t *testing.T) {
 				ResourceGroup: &pb.ResourceGroup{},
 			},
 		},
-		{
-			Name:              "network-no-private-access",
-			Parent:            testProjectName,
-			ResourceGroupName: testProjectName,
-			IamPolicy:         &pb.IamPolicy{},
-			Type: &pb.Resource_Network{
-				Network: &pb.Network{
-					Ips:                      []string{"8.8.4.4"},
-					GcpPrivateGoogleAccessV4: false,
-				},
-			},
-		},
+		networkNoPrivateAccess,
 		{
 			Name:              "network-private-access",
 			Parent:            testProjectName,
@@ -51,19 +50,17 @@ func TestCheckDetectsPrivateGoogleAccessDisabled(t *testing.T) {
 
 	want := []*pb.Observation{
 		{
-			Name: PrivateGoogleAccessDisabled,
-			Resource: &pb.Resource{
-				Name: "network-no-private-access",
-			},
+			Name:          PrivateGoogleAccessDisabled,
+			ResourceRef:   utils.GetResourceRef(networkNoPrivateAccess),
 			ObservedValue: structpb.NewStringValue("disabled"),
 			ExpectedValue: structpb.NewStringValue("enabled"),
+			Remediation: &pb.Remediation{
+				Description:    "Network [\"network-no-private-access\"](https://console.cloud.google.com/networking/networks/details/network-no-private-access?project=project-0) has [Private Google Access](https://cloud.google.com/vpc/docs/configure-private-google-access) disabled. Private Google Access allows the workloads to access Google APIs via a private network which is safer than going over the public Internet",
+				Recommendation: "Enable [Private Google Access](https://cloud.google.com/vpc/docs/configure-private-google-access) for Network [\"network-no-private-access\"](https://console.cloud.google.com/networking/networks/details/network-no-private-access?project=project-0)",
+			},
+			Severity: pb.Severity_SEVERITY_LOW,
 		},
 	}
 
-	got := TestRuleRun(t, resources, []model.Rule{NewPrivateGoogleAccessDisabledRule()})
-
-	// Check that the observations are correct.
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
-		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
-	}
+	TestRuleRun(t, resources, []model.Rule{NewPrivateGoogleAccessDisabledRule()}, want)
 }

@@ -2,13 +2,13 @@ package gcpacl
 
 import (
 	"fmt"
-	"os"
-	"strconv"
+	"strings"
 	"time"
 
+	"github.com/nianticlabs/modron/src/constants"
 	"github.com/nianticlabs/modron/src/model"
 
-	"github.com/golang/glog"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/api/cloudidentity/v1"
 	"google.golang.org/api/idtoken"
@@ -16,20 +16,22 @@ import (
 )
 
 const (
-	AclUpdateIntervalSecEnvVar = "ACL_UPDATE_INTERVAL_SEC"
+	defaultACLUpdateInterval = 5 * time.Minute
 )
 
-var aclUpdateIntervalSec = func() int {
-	intVar, err := strconv.Atoi(os.Getenv(AclUpdateIntervalSecEnvVar))
-	if err != nil {
-		return 5 * 60
-	}
-	return intVar
-}()
+var (
+	log = logrus.StandardLogger().WithField(constants.LogKeyPkg, "gcpacl")
+)
 
 type Config struct {
-	CacheTimeout time.Duration
 	AdminGroups  []string
+	CacheTimeout time.Duration
+	// PersistentCache is a flag to enable/disable the local ACL cache.
+	PersistentCache bool
+	// PersistentCacheTimeout is the amount of time we keep the ACLs on the filesystem before we fetch them again.
+	PersistentCacheTimeout time.Duration
+	// SkipIap enables or disables the IAP check - when this is enabled, all users are considered admins. Of course this should be always disabled in prod.
+	SkipIap bool
 }
 
 type GcpChecker struct {
@@ -37,45 +39,57 @@ type GcpChecker struct {
 	collector        model.Collector
 	cloudIdentitySvc *cloudidentity.Service
 
-	aclCache       map[string]map[string]struct{}
+	aclCache       model.ACLCache
 	adminsCache    map[string]ACLCacheEntry
-	adminGroupsIds []string
+	adminGroupsIDs []string
 }
 
-func (checker *GcpChecker) GetAcl() map[string]map[string]struct{} {
+func (checker *GcpChecker) GetACL() model.ACLCache {
 	return checker.aclCache
 }
 
 func New(ctx context.Context, collector model.Collector, cfg Config) (model.Checker, error) {
-	cisvc, err := cloudidentity.NewService(ctx)
+	cloudIdentitySvc, err := cloudidentity.NewService(ctx)
 	if err != nil {
 		return nil, err
 	}
 	gcpChecker := GcpChecker{
 		collector:        collector,
 		cfg:              cfg,
-		cloudIdentitySvc: cisvc,
-		aclCache:         make(map[string]map[string]struct{}),
+		cloudIdentitySvc: cloudIdentitySvc,
+		aclCache:         make(model.ACLCache),
 		adminsCache:      make(map[string]ACLCacheEntry),
-		adminGroupsIds:   []string{},
+		adminGroupsIDs:   []string{},
 	}
 	for _, ag := range cfg.AdminGroups {
-		group, err := cisvc.Groups.Lookup().GroupKeyId(ag).Do()
+		groupEmail := strings.TrimPrefix(ag, "group:")
+		group, err := cloudIdentitySvc.Groups.Lookup().GroupKeyId(groupEmail).Do()
 		if err != nil {
-			glog.Errorf("cannot fetch group %q: %v", ag, err)
+			log.Errorf("cannot fetch group %q: %v", ag, err)
 			continue
 		}
-		gcpChecker.adminGroupsIds = append(gcpChecker.adminGroupsIds, group.Name)
+		gcpChecker.adminGroupsIDs = append(gcpChecker.adminGroupsIDs, group.Name)
 	}
-	if err := gcpChecker.loadAclCache(ctx); err != nil {
-		return nil, err
+	if cfg.PersistentCache {
+		log.Debugf("using on-disk ACL cache")
+		if err := gcpChecker.loadACLCache(ctx); err != nil {
+			return nil, err
+		}
+	} else {
+		log.Debugf("using in-memory ACL cache")
+		var res model.ACLCache
+		res, err = gcpChecker.getACLAndStore(ctx)
+		if err != nil {
+			return nil, err
+		}
+		gcpChecker.aclCache = res
 	}
 	gcpChecker.updateACLs(ctx)
 	return &gcpChecker, nil
 }
 
 func (checker *GcpChecker) updateACLs(ctx context.Context) {
-	ticker := time.NewTicker(time.Duration(aclUpdateIntervalSec) * time.Second)
+	ticker := time.NewTicker(defaultACLUpdateInterval)
 	go func() {
 		for {
 			select {
@@ -83,8 +97,8 @@ func (checker *GcpChecker) updateACLs(ctx context.Context) {
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				if err := checker.loadAclCache(ctx); err != nil {
-					glog.Warningf("cannot update ACLs: %v", err)
+				if err := checker.loadACLCache(ctx); err != nil {
+					log.Warnf("cannot update ACLs: %v", err)
 				}
 			}
 		}
@@ -92,12 +106,18 @@ func (checker *GcpChecker) updateACLs(ctx context.Context) {
 }
 
 func (checker *GcpChecker) ListResourceGroupNamesOwned(ctx context.Context) (map[string]struct{}, error) {
+	adminResources := checker.aclCache["*"]
+	if checker.cfg.SkipIap {
+		// When we decide to skip the IAP check (insecure, only for local development), we return all resources as admin.
+		log.Warnf("IAP check is disabled, users are all admins. If you see this in production, reach out to the security team.")
+		return adminResources, nil
+	}
 	user, err := checker.GetValidatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if checker.isAdmin(user) {
-		return checker.aclCache["*"], nil
+		return adminResources, nil
 	}
 	if _, ok := checker.aclCache[user]; !ok {
 		return map[string]struct{}{}, nil
@@ -105,13 +125,40 @@ func (checker *GcpChecker) ListResourceGroupNamesOwned(ctx context.Context) (map
 	return checker.aclCache[user], nil
 }
 
-func (checker *GcpChecker) loadAclCache(ctx context.Context) error {
+func (checker *GcpChecker) loadACLCache(ctx context.Context) error {
+	aclFsCache, err := checker.getLocalACLCache()
+	if err != nil {
+		return err
+	}
+	if aclFsCache != nil {
+		if time.Since(aclFsCache.LastUpdate) < checker.cfg.PersistentCacheTimeout {
+			log.Tracef("ACL cache hit")
+			checker.aclCache = aclFsCache.Content
+			return nil
+		}
+		if err := checker.deleteLocalACLCache(); err != nil {
+			return fmt.Errorf("ACL cache: %w", err)
+		}
+	}
+	log.Tracef("ACL cache miss")
 	res, err := checker.collector.ListResourceGroupAdmins(ctx)
 	if err != nil {
 		return err
 	}
 	checker.aclCache = res
+	if err := checker.saveLocalACLCache(res); err != nil {
+		return fmt.Errorf("save ACL cache: %w", err)
+	}
 	return nil
+}
+
+func (checker *GcpChecker) getACLAndStore(ctx context.Context) (model.ACLCache, error) {
+	res, err := checker.collector.ListResourceGroupAdmins(ctx)
+	if err != nil {
+		return nil, err
+	}
+	checker.aclCache = res
+	return res, nil
 }
 
 func (checker *GcpChecker) GetValidatedUser(ctx context.Context) (string, error) {
@@ -135,25 +182,25 @@ func (checker *GcpChecker) GetValidatedUser(ctx context.Context) (string, error)
 	return user, nil
 }
 
-func (c *GcpChecker) isAdmin(user string) bool {
+func (checker *GcpChecker) isAdmin(user string) bool {
 	// We do some memoizing here as this might be called a lot over a short period of time.
-	if v, ok := c.adminsCache[user]; ok {
-		if v.time.Add(c.cfg.CacheTimeout).After(time.Now()) {
+	if v, ok := checker.adminsCache[user]; ok {
+		if v.time.Add(checker.cfg.CacheTimeout).After(time.Now()) {
 			return v.access
 		}
 	}
-	for _, g := range c.adminGroupsIds {
-		resp, err := c.cloudIdentitySvc.Groups.Memberships.CheckTransitiveMembership(g).Query(fmt.Sprintf("member_key_id == '%s'", user)).Do()
+	for _, g := range checker.adminGroupsIDs {
+		resp, err := checker.cloudIdentitySvc.Groups.Memberships.CheckTransitiveMembership(g).Query(fmt.Sprintf("member_key_id == '%s'", user)).Do()
 		if err != nil {
-			glog.Warningf("cannot check membership: %v", err)
-		} else {
-			if resp.HasMembership {
-				c.adminsCache[user] = ACLCacheEntry{time: time.Now(), access: true}
-				return true
-			}
+			log.Warnf("cannot check membership: %v", err)
+			continue
+		}
+		if resp.HasMembership {
+			checker.adminsCache[user] = ACLCacheEntry{time: time.Now(), access: true}
+			return true
 		}
 	}
-	c.adminsCache[user] = ACLCacheEntry{time: time.Now(), access: false}
+	checker.adminsCache[user] = ACLCacheEntry{time: time.Now(), access: false}
 	return false
 }
 

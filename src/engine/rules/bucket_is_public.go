@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/golang/glog"
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 
-	"github.com/nianticlabs/modron/src/common"
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -29,21 +29,21 @@ func NewBucketIsPublicRule() model.Rule {
 	return &BucketIsPublicRule{
 		info: model.RuleInfo{
 			Name: BucketIsPublicRuleName,
-			AcceptedResourceTypes: []string{
-				common.ResourceBucket,
+			AcceptedResourceTypes: []proto.Message{
+				&pb.Bucket{},
 			},
 		},
 	}
 }
 
-func (r *BucketIsPublicRule) Check(ctx context.Context, rsrc *pb.Resource) (obs []*pb.Observation, errs []error) {
+func (r *BucketIsPublicRule) Check(_ context.Context, _ model.Engine, rsrc *pb.Resource) (obs []*pb.Observation, errs []error) {
 	bk := rsrc.GetBucket()
 
 	if bk.AccessType == pb.Bucket_PUBLIC {
 		ob := &pb.Observation{
 			Uid:           uuid.NewString(),
 			Timestamp:     timestamppb.Now(),
-			Resource:      rsrc,
+			ResourceRef:   utils.GetResourceRef(rsrc),
 			Name:          r.Info().Name,
 			ExpectedValue: structpb.NewStringValue(pb.Bucket_PRIVATE.String()),
 			ObservedValue: structpb.NewStringValue(bk.AccessType.String()),
@@ -59,10 +59,11 @@ func (r *BucketIsPublicRule) Check(ctx context.Context, rsrc *pb.Resource) (obs 
 					rsrc.Name,
 				),
 			},
+			Severity: pb.Severity_SEVERITY_MEDIUM,
 		}
 		obs = append(obs, ob)
 	} else if bk.AccessType == pb.Bucket_ACCESS_UNKNOWN {
-		glog.Warningf("unknown access type for bucket %q", rsrc.Name)
+		log.Warnf("unknown access type for bucket %q", rsrc.Name)
 	}
 
 	return

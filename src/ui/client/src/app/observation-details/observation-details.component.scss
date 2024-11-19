@@ -78,13 +78,13 @@
 .remediation {
   background-color: #ffffff;
   align-self: stretch;
-  padding: 7px;
 }
 
-.recommendation {
-  background-color: #ff832b67;
+.recommendation-box {
+  border-radius: 8px;
+  background-color: #fff5c0;
   align-self: stretch;
-  padding: 7px;
+  padding: 4px 16px;
 }
 
 .inline {
@@ -94,8 +94,26 @@
 }
 
 .notify-ctn {
-  svg {
-    width: 40px;
+  display: flex;
+  .notifications-toggle {
     cursor: pointer;
+    transform: scale(1.25);
+    margin-top: 10px;
+  }
+}
+
+
+table.observation-properties {
+  td {
+    padding: 0px 8px;
+  }
+
+  td:first-child {
+    font-weight: bold;
+    padding-left: 0;
+  }
+
+  td > span.severity-value {
+    text-decoration: underline #333 dotted;
   }
 }

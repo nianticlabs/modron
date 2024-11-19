@@ -1,20 +1,20 @@
-ARG GOVERSION=1.21
+ARG GOVERSION=1.23
 
-FROM alpine:latest as ca-certificates_builder
+FROM alpine:latest AS ca-certificates_builder
 RUN apk add --no-cache ca-certificates
 
-FROM golang:${GOVERSION} as modron_builder
-ENV GOPATH /go
-WORKDIR /app
-COPY go.* ./
-COPY proto/go.* ./proto/
+FROM golang:${GOVERSION} AS modron_builder
+ENV GOPATH=/go
+WORKDIR /app/src
+COPY src/go.* /app/src/
+COPY src/proto/generated /app/src/proto/generated/
 RUN go mod download
-COPY . ./
+COPY ./src/ /app/src/
 RUN CGO_ENABLED=0 go build -v -o modron
 
 FROM scratch
 WORKDIR /app
 COPY --from=ca-certificates_builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=modron_builder /app/modron /app/modron
+COPY --from=modron_builder /app/src/modron /app/modron
 USER 101:101
-ENTRYPOINT ["/app/modron", "--logtostderr"]
+ENTRYPOINT ["/app/modron"]

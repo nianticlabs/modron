@@ -1,6 +1,6 @@
 import { Pipe, PipeTransform } from "@angular/core"
-import { Value } from "google-protobuf/google/protobuf/struct_pb"
 import * as pb from "src/proto/modron_pb"
+import {StructValueToStringPipe} from "../filter.pipe";
 
 @Pipe({ name: "mapByType" })
 export class MapByTypePipe implements PipeTransform {
@@ -36,7 +36,7 @@ export class MapByObservedValuesPipe implements PipeTransform {
     const obsByType = new Map<string, number>()
     obs.forEach((o) => {
       const obsValue = o.getObservedValue()
-        ? (o.getObservedValue() as Value).toString()
+        ? StructValueToStringPipe.prototype.transform(o.getObservedValue())
         : "Observation count"
       if (!obsByType.has(obsValue)) {
         obsByType.set(obsValue, 0)

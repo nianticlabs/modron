@@ -3,6 +3,8 @@ import { map, Observable } from "rxjs"
 import { ModronStore } from "../state/modron.store"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import * as pb from "src/proto/modron_pb"
+import * as moment from "moment";
+import {Severity} from "src/proto/modron_pb";
 
 @Component({
   selector: "app-resource-group",
@@ -16,13 +18,16 @@ export class ResourceGroupComponent {
   name = "";
 
   @Input()
-  lastScanDate = "";
+  lastScanDate: Date | null = null;
 
   @Input()
-  provider = "";
+  provider = "GCP"; // TODO: Change when we support other providers
 
   @Input()
   observationCount = -1;
+
+  @Input()
+  observationBySeverity: [number, number][] = [];
 
   constructor(public store: ModronStore, public snackBar: MatSnackBar) { }
 
@@ -60,4 +65,10 @@ export class ResourceGroupComponent {
       })
     )
   }
+
+  fromNow(date: string): string {
+    return moment(date).fromNow()
+  }
+
+  protected readonly Severity = Severity;
 }

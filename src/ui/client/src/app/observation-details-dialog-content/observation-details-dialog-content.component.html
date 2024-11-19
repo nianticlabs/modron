@@ -1,0 +1,100 @@
+<ng-container>
+  <mat-dialog-content class="dialog-content">
+    <h2>{{ observation.getName() }}</h2>
+
+    <h4>Risk Score</h4>
+    <div class="risk-score">
+      <app-severity-indicator
+        [severity]="observation.getRiskScore()"
+        class="main-indicator"
+      />
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <b>How is the risk score computed?</b>
+          </mat-panel-title>
+        </mat-expansion-panel-header>
+        <div class="short-risk-score-description">
+          <p>To compute the risk score, we take into account these factors:</p>
+        </div>
+        <div class="severity-impact-container">
+          <app-severity-indicator [severity]="observation.getSeverity()" class="indicator"/>
+          <div class="expl">
+            <h4>Severity: {{ observation.getSeverity() | severityName }}</h4>
+            <p>
+              The severity is determined by the type of observation
+              (in this case, <code>{{ observation.getName() }}</code>) and other observation specific factors.
+              This score defines how important we think the observation is, regardless of the environment.
+            </p>
+          </div>
+          <app-impact-indicator [impact]="observation.getImpact()" class="indicator"/>
+          <div class="expl">
+            <h4>Impact: {{ observation.getImpact() | impactName }}</h4>
+            <p>
+              The impact is determined by looking at the resource group environment and properties. <br/>
+              This observation's impact is <u>{{ observation.getImpact() | impactName | uppercase }}</u> because
+              one of the ancestors of this resource has the label <code>{{ observation.getImpactReason() }}</code> set.
+              <br/><br/>
+              <ng-container *ngIf="observation.getImpact() === Impact.IMPACT_HIGH">
+                The HIGH impact of this observation indicates that this resource group is part of a
+                critical path for the business. For example the resource group is considered a production environment
+                or contains customer data.
+              </ng-container>
+              <ng-container *ngIf="observation.getImpact() === Impact.IMPACT_MEDIUM">
+                In this case, the impact is MEDIUM. This means that the resource group is not
+                part of a critical path for the business, but it is still important.
+                The resource group should not contain customer data, but the impact of an observation on this
+                project is not negligible.
+              </ng-container>
+              <ng-container *ngIf="observation.getImpact() === Impact.IMPACT_LOW">
+                The LOW impact of this observation indicates that this resource group is not part of a
+                critical path for the business. LOW impact is applied to resource groups that are
+                not productive, do not contain customer data and employee data. This is for example
+                development environments and playground projects.
+              </ng-container>
+              <ng-container *ngIf="observation.getImpact() === Impact.IMPACT_UNKNOWN">
+                The UNKNOWN impact is unexpected. Please reach-out to Security and mention this -
+                something might have failed while analyzing the resource group.
+              </ng-container>
+            </p>
+          </div>
+        </div>
+        <div>
+          With the two scores above, we compute the risk score as defined in the
+          <a
+            target="_blank"
+            href="https://github.com/nianticlabs/modron/blob/main/docs/RISK_SCORE.md">Modron Risk Score design document</a>.
+          The risk score is then used to provide a hint on what should be tackled first. <br/>
+        </div>
+      </mat-expansion-panel>
+    </div>
+
+    <h4>Details</h4>
+    <div class="observation-details">
+      <p class="hdr">Finding Class</p>
+      <p class="val">{{ observation.getCategory() | categoryName }}</p>
+
+      <p class="hdr">Expected</p>
+      <p class="val">{{ observation.getExpectedValue()?.toJavaScript() }}</p>
+
+      <p class="hdr">Observed</p>
+      <p class="val">{{ observation.getObservedValue()?.toJavaScript() }}</p>
+
+      <p class="hdr">Time of scan</p>
+      <p class="val">{{ observation.getTimestamp()?.toDate() | date:"medium" }}</p>
+    </div>
+
+    <h4>Description</h4>
+    <p
+      class="description markdown-content"
+      [innerHTML]="observation.getRemediation()?.getDescription() || '' | markdown | async"></p>
+    <h4>Recommendation</h4>
+    <p
+      class="recommendation markdown-content"
+      [innerHTML]="observation.getRemediation()?.getRecommendation() || '' | markdown | async">
+    </p>
+  </mat-dialog-content>
+  <mat-dialog-actions>
+    <button mat-button mat-dialog-close>Close</button>
+  </mat-dialog-actions>
+</ng-container>

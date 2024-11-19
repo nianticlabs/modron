@@ -1,0 +1,47 @@
+
+.severity-circle {
+  color: #FFF;
+  display: block;
+  width: 30px;
+  height: 30px;
+  line-height: 30px;
+  font-size: 16px;
+  overflow: hidden;
+  text-align: center;
+  border-radius: 30px;
+  margin-right: 6px;
+}
+
+.severity-circle-unknown {
+  background-color: #9E9E9E;
+}
+
+.severity-circle-info {
+  background-color: #2196F3;
+}
+
+.severity-circle-low {
+  background-color: #AFB42B;
+}
+
+
+.severity-circle-medium {
+  background-color: #F9A825;
+}
+
+.severity-circle-high {
+  background-color: #E65100;
+}
+
+.severity-circle-critical {
+  background-color: #D50000;
+
+  // Make this blink too!
+  animation: blinker 1s linear infinite;
+}
+
+@keyframes blinker {
+  50% {
+    background-color: #ff0000;
+  }
+}

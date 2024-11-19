@@ -1,0 +1,167 @@
+syntax = "proto3";
+
+// You may want to read https://google.aip.dev/general first.
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+import "google/api/annotations.proto";
+import "google/api/client.proto";
+import "google/longrunning/operations.proto";
+
+option go_package = "./nagatha";
+package com.nianticlabs.nagatha;
+
+message Exception {
+  string uuid = 1;
+  string source_system = 2;
+  string user_email = 3;
+  string notification_name = 4;
+  string justification = 5;
+  google.protobuf.Timestamp created_on_time = 6;
+  google.protobuf.Timestamp valid_until_time = 7;
+}
+
+message Notification {
+  string uuid = 1;
+  string source_system = 2;
+  string name = 3;
+  string recipient = 4;
+  string content = 5;
+  google.protobuf.Timestamp created_on = 6;
+  google.protobuf.Timestamp sent_on = 7;
+  google.protobuf.Duration interval = 8;
+}
+
+message BatchCreateNotificationsRequest {
+  repeated Notification notifications = 1;
+}
+
+message BatchCreateNotificationsResponse {
+  repeated Notification notifications = 1;
+}
+
+service Nagatha {
+  rpc CreateNotification(CreateNotificationRequest) returns (Notification) {
+    option (google.api.http) = {
+      post : "/v2/notifications"
+      body : "notification"
+    };
+  };
+
+  rpc BatchCreateNotifications(BatchCreateNotificationsRequest) returns (google.longrunning.Operation) {
+    option (google.api.http) = {
+      post : "/v2/notifications:batchCreate"
+      body : "*"
+    };
+    option (google.longrunning.operation_info) = {
+      response_type : "BatchCreateNotificationsResponse"
+      metadata_type : "OperationMetadata"
+    };
+  };
+
+  rpc GetException(GetExceptionRequest) returns (Exception) {
+    option (google.api.http) = {
+      get : "/v2/exceptions/{uuid}"
+    };
+  };
+  rpc CreateException(CreateExceptionRequest) returns (Exception) {
+    option (google.api.http) = {
+      post : "/v2/exceptions"
+      body : "exception"
+    };
+  };
+  rpc UpdateException(UpdateExceptionRequest) returns (Exception) {
+    option (google.api.http) = {
+      patch : "/v2/exceptions/{exception.uuid}"
+      body : "exception"
+    };
+  };
+  rpc DeleteException(DeleteExceptionRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete : "/v2/exceptions/{uuid}"
+    };
+  };
+  rpc ListExceptions(ListExceptionsRequest) returns (ListExceptionsResponse) {
+    option (google.api.http) = {
+      get : "/v2/exceptions"
+    };
+  };
+
+  rpc NotifyUser(NotifyUserRequest) returns (NotifyUserResponse) {
+    option (google.api.http) = {
+      post : "/v2/notifyUser"
+      body : "*"
+    };
+  };
+  rpc NotifyAll(NotifyAllRequest) returns (google.longrunning.Operation) {
+    option (google.api.http) = {
+      get : "/v2/notifyAll"
+    };
+    option (google.longrunning.operation_info) = {
+      response_type : "NotifyAllResponse"
+      metadata_type : "OperationMetadata"
+    };
+  };
+
+  rpc ListOperations(google.longrunning.ListOperationsRequest) returns (google.longrunning.ListOperationsResponse) {
+    option (google.api.http) = {
+      post: "/v2/{name=operations}"
+    };
+    option (google.api.method_signature) = "name,filter";
+  }
+
+  // Gets the latest state of a long-running operation.  Clients can use this
+  // method to poll the operation result at intervals as recommended by the API
+  // service.
+  rpc GetOperation(google.longrunning.GetOperationRequest) returns (google.longrunning.Operation) {
+    option (google.api.http) = {
+      get: "/v2/{name=operations/**}"
+    };
+    option (google.api.method_signature) = "name";
+  }
+}
+
+message CreateNotificationRequest { Notification notification = 1; }
+
+message GetExceptionRequest { string uuid = 1; }
+
+message CreateExceptionRequest { Exception exception = 1; }
+
+message UpdateExceptionRequest {
+  Exception exception = 1;
+
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message DeleteExceptionRequest { string uuid = 1; }
+
+message ListExceptionsRequest {
+  string user_email = 1;
+
+  int32 page_size = 2;
+
+  string page_token = 3;
+}
+
+message ListExceptionsResponse {
+  repeated Exception exceptions = 1;
+
+  string next_page_token = 2;
+}
+
+message NotifyAllRequest {}
+
+// NotifyAll is a long running operation.
+// https://google.aip.dev/151
+message NotifyAllResponse { bool has_completed = 1; }
+
+message NotifyUserRequest {
+  string user_email = 1;
+  string title = 2;
+  string content = 3;
+  string source_system = 4;
+}
+
+message NotifyUserResponse {}

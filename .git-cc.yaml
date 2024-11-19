@@ -1,0 +1,11 @@
+scopes:
+  collector: Collector changes
+  docker: Docker related changes
+  nagatha: Nagatha related changes
+  otel: OpenTelemetry related changes
+  rules: Changes to the rules
+  scc: Security Command Center related changes
+  server: Changes to the Modron backend
+  storage: Changes to the storage layer
+  terraform: Terraform related changes
+  ui: UI changes

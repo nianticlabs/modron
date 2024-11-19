@@ -4,7 +4,7 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "./pb";
+option go_package = "./";
 
 message NotificationException {
     string uuid = 1;

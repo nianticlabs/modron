@@ -3,25 +3,12 @@
     "version": "0.0.0",
     "scripts": {
         "postinstall": "(cd client && npm install); (cd mock-grpc-server && npm install)",
-        "dev": "npm run dev:mock-grpc-server-envoy && concurrently --kill-others \"npm run dev:client\" \"npm run dev:mock-grpc-server\"",
-        "dev:client": "cd client/ && ng serve --verbose --proxy-config ../proxy.conf.json",
+        "dev": "concurrently --kill-others \"npm run dev:client\" \"docker-compose up -d\"",
+        "dev:client": "cd client/ && npm run ng -- serve --verbose --proxy-config ../proxy.conf.json",
         "dev:mock-grpc-server-envoy": "cd mock-grpc-server/ && docker run --rm -p4201:4201 -p9901:9901 -v $(pwd)/envoy.yaml:/etc/envoy/envoy.yaml:ro -t envoyproxy/envoy:v1.24-latest",
-        "dev:mock-grpc-server": "npm run --prefix mock-grpc-server/ dev",
-        "genproto": "npm run --prefix client/ genproto && npm run --prefix mock-grpc-server/ genproto"
-    },
-    "devDependencies": {
-        "@angular-eslint/eslint-plugin": "^16.1.0",
-        "@angular-eslint/eslint-plugin-template": "^16.1.0",
-        "@angular-eslint/template-parser": "^16.1.0",
-        "@typescript-eslint/eslint-plugin": "^6.1.0",
-        "@typescript-eslint/parser": "^6.1.0",
-        "concurrently": "^8.2.0",
-        "eslint": "^8.45.0"
+        "dev:mock-grpc-server": "npm run --prefix mock-grpc-server/ dev"
     },
     "dependencies": {
-        "@alenon/grpc-mock-server": "^3.0.21",
-        "@angular/material": "^16.1.5",
-        "google-protobuf": "^3.21.2",
-        "ts-node": "^10.9.1"
+        "concurrently": "^8.2.2"
     }
 }

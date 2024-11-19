@@ -5,11 +5,12 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 
-	"github.com/nianticlabs/modron/src/common"
 	"github.com/nianticlabs/modron/src/constants"
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -29,21 +30,21 @@ func NewClusterNodesHavePublicIpsRule() model.Rule {
 	return &ClusterNodesHavePublicIpsRule{
 		info: model.RuleInfo{
 			Name: ClusterNodesHavePublicIps,
-			AcceptedResourceTypes: []string{
-				common.ResourceKubernetesCluster,
+			AcceptedResourceTypes: []proto.Message{
+				&pb.KubernetesCluster{},
 			},
 		},
 	}
 }
 
-func (r *ClusterNodesHavePublicIpsRule) Check(ctx context.Context, rsrc *pb.Resource) ([]*pb.Observation, []error) {
+func (r *ClusterNodesHavePublicIpsRule) Check(_ context.Context, _ model.Engine, rsrc *pb.Resource) ([]*pb.Observation, []error) {
 	k8s := rsrc.GetKubernetesCluster()
-	obs := []*pb.Observation{}
+	var obs []*pb.Observation
 	if !k8s.PrivateCluster {
 		ob := &pb.Observation{
 			Uid:           uuid.NewString(),
 			Timestamp:     timestamppb.Now(),
-			Resource:      rsrc,
+			ResourceRef:   utils.GetResourceRef(rsrc),
 			Name:          r.Info().Name,
 			ExpectedValue: structpb.NewStringValue("private"),
 			ObservedValue: structpb.NewStringValue("public"),
@@ -59,6 +60,7 @@ func (r *ClusterNodesHavePublicIpsRule) Check(ctx context.Context, rsrc *pb.Reso
 					constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 				),
 			},
+			Severity: pb.Severity_SEVERITY_HIGH,
 		}
 		obs = append(obs, ob)
 	}

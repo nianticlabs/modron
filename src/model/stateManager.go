@@ -1,16 +1,16 @@
 package model
 
 import (
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
 )
 
 type StateManager interface {
-	GetCollectState(collectId string) pb.RequestStatus
-	GetScanState(scanId string) pb.RequestStatus
+	GetCollectState(collectID string) pb.RequestStatus
+	GetScanState(scanID string) pb.RequestStatus
 
-	AddScan(scanId string, resourceGroupNames []string) []string
-	EndScan(scanId string, resourceGroupNames []string)
+	AddScan(scanID string, resourceGroupNames []string) []string
+	EndScan(scanID string, resourceGroupNames []string)
 
-	AddCollect(collectId string, resourceGroupNames []string) []string
-	EndCollect(collectId string, resourceGroupNames []string)
+	AddCollect(collectID string, resourceGroupNames []string) []string
+	EndCollect(collectID string, resourceGroupNames []string)
 }

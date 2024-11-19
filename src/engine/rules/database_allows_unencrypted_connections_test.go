@@ -3,16 +3,27 @@ package rules
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestCheckDetectsDatabaseAllowsUnencryptedConnections(t *testing.T) {
+	databaseNoForceTLS := &pb.Resource{
+		Name:              "database-no-force-tls",
+		Parent:            testProjectName,
+		ResourceGroupName: testProjectName,
+		IamPolicy:         &pb.IamPolicy{},
+		Type: &pb.Resource_Database{
+			Database: &pb.Database{
+				Type:        "cloudsql",
+				Version:     "123",
+				TlsRequired: false,
+			},
+		},
+	}
 	resources := []*pb.Resource{
 		{
 			Name:              testProjectName,
@@ -23,19 +34,7 @@ func TestCheckDetectsDatabaseAllowsUnencryptedConnections(t *testing.T) {
 				ResourceGroup: &pb.ResourceGroup{},
 			},
 		},
-		{
-			Name:              "database-no-force-tls",
-			Parent:            testProjectName,
-			ResourceGroupName: testProjectName,
-			IamPolicy:         &pb.IamPolicy{},
-			Type: &pb.Resource_Database{
-				Database: &pb.Database{
-					Type:        "cloudsql",
-					Version:     "123",
-					TlsRequired: false,
-				},
-			},
-		},
+		databaseNoForceTLS,
 		{
 			Name:              "database-force-tls",
 			Parent:            testProjectName,
@@ -53,19 +52,17 @@ func TestCheckDetectsDatabaseAllowsUnencryptedConnections(t *testing.T) {
 
 	want := []*pb.Observation{
 		{
-			Name: DatabaseAllowsUnencryptedConnections,
-			Resource: &pb.Resource{
-				Name: "database-no-force-tls",
-			},
+			Name:          DatabaseAllowsUnencryptedConnections,
+			ResourceRef:   utils.GetResourceRef(databaseNoForceTLS),
 			ObservedValue: structpb.NewBoolValue(false),
 			ExpectedValue: structpb.NewBoolValue(true),
+			Remediation: &pb.Remediation{
+				Description:    "Database database-no-force-tls allows for unencrypted connections.",
+				Recommendation: "Enable the require SSL setting in the database settings to allow only encrypted connections to database-no-force-tls.",
+			},
+			Severity: pb.Severity_SEVERITY_MEDIUM,
 		},
 	}
 
-	got := TestRuleRun(t, resources, []model.Rule{NewDatabaseAllowsUnencryptedConnectionsRule()})
-
-	// Check that the observations are correct.
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
-		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
-	}
+	TestRuleRun(t, resources, []model.Rule{NewDatabaseAllowsUnencryptedConnectionsRule()}, want)
 }

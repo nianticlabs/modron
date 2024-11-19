@@ -1,20 +1,35 @@
 module github.com/nianticlabs/modron/src/e2e_test
 
-go 1.21
+go 1.23.2
 
-replace github.com/nianticlabs/modron/src/pb => ../proto/
+replace github.com/nianticlabs/modron/src/proto/generated => ../proto/generated
 
 require (
-	github.com/google/go-cmp v0.5.9
-	google.golang.org/grpc v1.57.0
-	google.golang.org/protobuf v1.31.0
-	github.com/nianticlabs/modron/src/pb v0.0.0-00010101000000-000000000000
+	github.com/google/go-cmp v0.6.0
+	google.golang.org/grpc v1.67.1
+	google.golang.org/protobuf v1.35.1
+	github.com/nianticlabs/modron/src/proto/generated v0.0.0-00010101000000-000000000000
 )
 
 require (
-	github.com/golang/protobuf v1.5.3 // indirect
-	golang.org/x/net v0.14.0 // indirect
-	golang.org/x/sys v0.12.0 // indirect
-	golang.org/x/text v0.13.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20230822172742-b8732ec3820d // indirect
+	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
+	github.com/go-logr/logr v1.4.2 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/google/gofuzz v1.2.0 // indirect
+	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/x448/float16 v0.8.4 // indirect
+	golang.org/x/net v0.30.0 // indirect
+	golang.org/x/sys v0.26.0 // indirect
+	golang.org/x/text v0.19.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20241021214115-324edc3d5d38 // indirect
+	gopkg.in/inf.v0 v0.9.1 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
+	k8s.io/api v0.31.2 // indirect
+	k8s.io/apimachinery v0.31.2 // indirect
+	k8s.io/klog/v2 v2.130.1 // indirect
+	k8s.io/utils v0.0.0-20240921022957-49e7df575cb6 // indirect
+	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )

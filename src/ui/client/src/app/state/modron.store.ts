@@ -1,9 +1,10 @@
-import { Injectable } from "@angular/core"
-import { BehaviorSubject, map, Observable } from "rxjs"
-import { ModronService } from "../modron.service"
-import { StatusInfo } from "../model/modron.model"
+import {Injectable} from "@angular/core"
+import {BehaviorSubject, map, Observable} from "rxjs"
+import {ModronService} from "../modron.service"
+import {StatusInfo} from "../model/modron.model"
 
-import * as pb from "src/proto/modron_pb"
+import * as pb from "../../proto/modron_pb"
+import {RequestStatus, ScanType} from "../../proto/modron_pb"
 
 @Injectable()
 export class ModronStore {
@@ -54,12 +55,35 @@ export class ModronStore {
         // A shallow copy here is enough
         const scanInfo = new Map(this.scanInfo)
         scanInfo.set(res.getCollectId() + ModronService.SEPARATOR + res.getScanId(), {
-          state: 2,
+          state: RequestStatus.RUNNING,
           resourceGroups: resourceGroups,
+          scanType: ScanType.SCAN_TYPE_PARTIAL
         })
         this._runningScans.set(res.getCollectId() + ModronService.SEPARATOR + res.getScanId(), {
-          state: 2,
+          state: RequestStatus.RUNNING,
           resourceGroups: resourceGroups,
+          scanType: ScanType.SCAN_TYPE_PARTIAL
+        })
+        this._scanIdsStatus.next(scanInfo)
+        return res
+      })
+    )
+  }
+
+  collectAndScanAll$(): Observable<pb.CollectAndScanResponse> {
+    this.checkScansStatus()
+    return this._service.collectAndScanAll().pipe(
+      map((res) => {
+        const scanInfo = new Map(this.scanInfo)
+        scanInfo.set(res.getCollectId() + ModronService.SEPARATOR + res.getScanId(), {
+          state: RequestStatus.RUNNING,
+          resourceGroups: [],
+          scanType: ScanType.SCAN_TYPE_FULL
+        })
+        this._runningScans.set(res.getCollectId() + ModronService.SEPARATOR + res.getScanId(), {
+          state: RequestStatus.RUNNING,
+          resourceGroups: [],
+          scanType: ScanType.SCAN_TYPE_FULL
         })
         this._scanIdsStatus.next(scanInfo)
         return res
@@ -85,7 +109,7 @@ export class ModronStore {
               s = res.getScanStatus()
             }
             const scanInfo = new Map(this.scanInfo)
-            scanInfo.set(v, { state: s, resourceGroups: k.resourceGroups })
+            scanInfo.set(v, { state: s, resourceGroups: k.resourceGroups, scanType: k.scanType })
             if (s === pb.RequestStatus.DONE) {
               this._runningScans.delete(v)
               this.fetchObservations(k.resourceGroups).subscribe((obs) => {

@@ -1,46 +1,26 @@
 <div class="app-resourcegroup">
   <div class="app-resourcegroup-header">
-    <h1>
+    <h2>
       <a *ngIf="this.resourceGroupName.startsWith('projects/')"
-        href="{{this.PROJECT_URL + this.resourceGroupName.replace('projects/', '') }}">{{
-        this.resourceGroupName.replace('projects/', '') }}</a>
+         href="{{this.PROJECT_URL + this.resourceGroupName.replace('projects/', '') }}">{{
+          this.resourceGroupName.replace('projects/', '')
+        }}</a>
       <a *ngIf="this.resourceGroupName.startsWith('folders/')"
-        href="{{ this.FOLDER_URL + this.resourceGroupName.replace('folders/', '') }}">{{
-        this.resourceGroupName }}</a>
+         href="{{ this.FOLDER_URL + this.resourceGroupName.replace('folders/', '') }}">{{
+          this.resourceGroupName
+        }}</a>
       <a *ngIf="this.resourceGroupName.startsWith('organizations/')"
-        href="{{ this.ORGANIZATION_URL + this.resourceGroupName.replace('organizations/', '') }}">{{
-        this.resourceGroupName }}</a>
-      |
-    </h1>
-    <h2>observation details</h2>
+         href="{{ this.ORGANIZATION_URL + this.resourceGroupName.replace('organizations/', '') }}">{{
+          this.resourceGroupName
+        }}</a>
+    </h2>
+    <h3>Observation details</h3>
   </div>
-  <div *ngIf="this.store.observations$ | async; else loading" style="overflow: scroll; height: 80vh">
-    <div *ngIf="this.store.observations$ | async; let mapGroupRules">
-      <div class="app-recourcegroup-observations">
-        <div *ngFor="
-            let obsOfType of this.getName(mapGroupRules)
-              | keyvalue
-              | reverseSortByLength;
-            trackBy: this.identityKV
-          ">
-          <div class="inline" style="justify-content: space-between; align-items: center">
-            <div class="inline" id="{{ obsOfType.key }}">
-              <a [routerLink]="['./']" fragment="{{ obsOfType.key }}">
-                <h1>{{ obsOfType.key }}:</h1>
-                <h1 *ngIf="obsOfType.value.length > 0" style="color: #da1e28"> {{ obsOfType.value.length }} observations
-                </h1>
-                <h1 *ngIf="obsOfType.value.length === 0" style="color: #24a148"> ✔ all checks pass </h1>
-              </a>
-            </div>
-          </div>
-          <div *ngFor="let ob_el of obsOfType.value; trackBy: this.identity">
-            <app-observation-details [ob]="ob_el"></app-observation-details>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <ng-template #loading>
+  <div *ngIf="this.loading; else observations">
     <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  </div>
+  <ng-template #observations>
+    <div class="app-recourcegroup-observations">
+      <app-observations-table [obs]="this.obs"></app-observations-table>
+    </div>
   </ng-template>
-</div>

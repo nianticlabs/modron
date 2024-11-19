@@ -1,17 +1,20 @@
-version: '3'
-
 services:
   postgres_db:
     container_name: postgres_db
-    build:
-      context: src/
-      dockerfile: Dockerfile.db
+    image: postgres:14-bookworm
     restart: always
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: "modron"
       POSTGRES_PASSWORD: "docker-test-password"
       POSTGRES_DB: "modron"
       PGDATA: "/tmp/"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U modron"]
+      interval: 1s
+      timeout: 2s
+      retries: 5
     tmpfs:
       - /tmp
     networks:
@@ -19,36 +22,39 @@ services:
 
   modron_fake:
     container_name: modron_fake
-    build: src/
+    build:
+      context: .
+      dockerfile: src/Dockerfile
     environment:
       COLLECTOR: "FAKE"
       DB_BATCH_SIZE: "1"
       DB_MAX_CONNECTIONS: "1"
-      ENVIRONMENT: "E2E_GRPC_TESTING"
-      GLOG_v: "10"
+      IS_E2E_GRPC_TEST: "true"
+      LISTEN_ADDR: "0.0.0.0"
       NOTIFICATION_SERVICE: "modron_test:8082"
-      OBSERVATION_TABLE_ID: "observations"
-      OPERATION_TABLE_ID: "operations"
-      ORG_ID: "0123456789"
+      ORG_ID: "111111111111"
       ORG_SUFFIX: "@example.com"
       PORT: 8081
-      RESOURCE_TABLE_ID: "resources"
       RUN_AUTOMATED_SCANS: "false"
       SQL_BACKEND_DRIVER: "postgres"
       SQL_CONNECT_STRING: "host=postgres_db port=5432 user=modron password=docker-test-password database=modron sslmode=disable"
       STORAGE: "SQL"
+      TAG_CUSTOMER_DATA: 111111111111/customer_data
+      TAG_EMPLOYEE_DATA: 111111111111/employee_data
+      TAG_ENVIRONMENT: 111111111111/environment
     ports:
       - "8081:8081"
     networks:
       - modron
     depends_on:
-      - postgres_db
+      postgres_db:
+        condition: service_healthy
 
   modron_test:
     container_name: e2e_test
     build:
-      context: src/
-      dockerfile: Dockerfile.e2e
+      context: .
+      dockerfile: src/Dockerfile.e2e
     environment:
       BACKEND_ADDRESS: "modron:8080"
       FAKE_BACKEND_ADDRESS: "modron_fake:8081"

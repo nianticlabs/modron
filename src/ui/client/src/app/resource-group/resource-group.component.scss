@@ -1,3 +1,86 @@
+@use '../../colors.scss' as colors;
+
+.resource-group-card {
+  cursor: pointer;
+  overflow: hidden;
+
+  .resource-group-card-header {
+    display: block;
+  }
+
+  .resource-group-title {
+    height: 36px;
+    width: 100%;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+
+  .content {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+
+    .observations {
+      .findings-count, .no-findings {
+        height: 30px;
+        padding: 10px;
+        color: #FFF;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-items: center;
+        justify-content: center;
+      }
+
+      .findings-by-severity {
+        display: flex;
+        row-gap: 4px;
+        column-gap: 4px;
+        justify-content: left;
+        height: 50px;
+        align-items: center;
+      }
+
+
+      .no-findings {
+        background-color: colors.$allGood;
+      }
+
+
+      .findings-count {
+        background-color: colors.$danger;
+
+        .icon {
+          margin-right: 4px;
+        }
+
+        .count {
+          margin-right: 4px;
+        }
+
+        .desc {
+
+        }
+
+      }
+    }
+
+    .last-scan {
+      color: colors.$secondaryText;
+      height: 20px;
+      font-size: 0.8em;
+      margin-top: 1em;
+    }
+  }
+
+  .footer {
+    height: 4px;
+  }
+}
+
+
 .resourceGroup-ctn {
   width: 300px;
   height: 220px;

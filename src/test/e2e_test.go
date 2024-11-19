@@ -2,9 +2,14 @@ package e2e
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"flag"
 	"fmt"
+	"math/big"
 	"net"
 	"os"
 	"reflect"
@@ -24,7 +29,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
 )
 
 func init() {
@@ -46,16 +51,16 @@ var projectListFile string
 
 func runFakeNotificationService(t *testing.T, port int64) {
 	t.Helper()
-	lis, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	lis, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
 		t.Fatalf("cannot listen on port %d: %v", port, err)
 	}
-	srvCert, err := tls.LoadX509KeyPair("cert.pem", "key.pem")
+	tlsCert, err := getTLSCert()
 	if err != nil {
-		panic(fmt.Sprintln("load certificate: ", err))
+		panic(fmt.Sprintln("generate certificate: ", err))
 	}
 	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{
-		Certificates: []tls.Certificate{srvCert},
+		Certificates: []tls.Certificate{tlsCert},
 		ClientAuth:   tls.NoClientCert,
 	})))
 	svc := New()
@@ -66,12 +71,53 @@ func runFakeNotificationService(t *testing.T, port int64) {
 	}
 }
 
+func getTLSCert() (tls.Certificate, error) {
+	public, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	x509Cert := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Country:    []string{"US"},
+			CommonName: "modron",
+		},
+	}
+	cert, err := x509.CreateCertificate(rand.Reader, x509Cert, x509Cert, public, private)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	return tls.Certificate{Certificate: [][]byte{cert}, PrivateKey: private}, nil
+}
+
+// TODO: deterministically sort the observations to avoid flaky tests
 func testModronE2e(t *testing.T, addr string, resourceGroupNames []string, want map[string][]*structpb.Value) {
 	flag.Parse()
 	ctx := context.Background()
 	go func() {
 		runFakeNotificationService(t, extractNotificationServicePortFromEnvironment(t))
 	}()
+
+	// Wait for backend to be available
+	var backendAvailable bool
+	maxTries := 10
+	for i := 0; i < maxTries; i++ {
+		conn, err := net.Dial("tcp", addr)
+		if err != nil {
+			fmt.Printf("waiting for backend to be available: %v\n", err)
+			time.Sleep(time.Second)
+			continue
+		}
+		fmt.Printf("backend is available\n")
+		backendAvailable = true
+		conn.Close()
+		break
+	}
+
+	if !backendAvailable {
+		t.Fatalf("backend is not available after %d tries", maxTries)
+	}
+
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
@@ -94,7 +140,7 @@ func testModronE2e(t *testing.T, addr string, resourceGroupNames []string, want 
 		}
 	}
 
-	allObs := []*pb.Observation{}
+	var allObs []*pb.Observation
 	for _, el := range listObsResponse.ResourceGroupsObservations {
 		for _, rules := range el.RulesObservations {
 			allObs = append(allObs, rules.Observations...)
@@ -103,30 +149,21 @@ func testModronE2e(t *testing.T, addr string, resourceGroupNames []string, want 
 	if len(allObs) < 1 {
 		t.Fatalf("no observations returned")
 	}
+
+	// TODO: use a comparer instead of this
 	got := map[string][]*structpb.Value{}
 	for _, ob := range allObs {
-		if _, ok := got[ob.Resource.Name]; !ok {
-			got[ob.Resource.Name] = []*structpb.Value{}
+		if ob.ResourceRef.ExternalId == nil {
+			t.Errorf("observation %+v has no externalId", ob)
+			continue
 		}
-		temp := got[ob.Resource.Name]
-		got[ob.Resource.Name] = append(temp, ob.ExpectedValue)
-	}
-	for k, v := range got {
-		if diff := cmp.Diff(want[k], v, protocmp.Transform()); diff != "" {
-			t.Errorf("Resource %v has unexpected observations (-want, +got): %v", k, diff)
+		if _, ok := got[*ob.ResourceRef.ExternalId]; !ok {
+			got[*ob.ResourceRef.ExternalId] = []*structpb.Value{}
 		}
+		temp := got[*ob.ResourceRef.ExternalId]
+		got[*ob.ResourceRef.ExternalId] = append(temp, ob.ExpectedValue)
 	}
 
-	// TODO extract this to its own test
-	manualObservation := &pb.Observation{
-		Resource:      allObs[0].GetResource(),
-		Name:          "test-observation",
-		ObservedValue: structpb.NewStringValue("test observation"),
-		Remediation: &pb.Remediation{
-			Description:    "test observation",
-			Recommendation: "test observation, no recommendation",
-		},
-	}
 	cmpOpts := cmp.Options{
 		protocmp.Transform(),
 		cmpopts.EquateApproxTime(time.Second),
@@ -147,7 +184,26 @@ func testModronE2e(t *testing.T, addr string, resourceGroupNames []string, want 
 				return time.Unix(t["seconds"].(int64), 0).UTC()
 			}),
 		),
+		cmpopts.SortSlices(func(a, b *structpb.Value) bool {
+			return a.GetStringValue() < b.GetStringValue()
+		}),
+		protocmp.IgnoreFields(&pb.Observation{}, "uid"),
 	}
+	if diff := cmp.Diff(want, got, cmpOpts); diff != "" {
+		t.Errorf("Resources have unexpected observations (-want, +got): %v", diff)
+	}
+
+	// TODO extract this to its own test
+	manualObservation := &pb.Observation{
+		ResourceRef:   allObs[0].GetResourceRef(),
+		Name:          "test-observation",
+		ObservedValue: structpb.NewStringValue("test observation"),
+		Remediation: &pb.Remediation{
+			Description:    "test observation",
+			Recommendation: "test observation, no recommendation",
+		},
+	}
+
 	manualObservation.Timestamp = timestamppb.Now()
 	gotManualObs, err := client.CreateObservation(ctx, &pb.CreateObservationRequest{Observation: manualObservation})
 	if err != nil {
@@ -158,7 +214,8 @@ func testModronE2e(t *testing.T, addr string, resourceGroupNames []string, want 
 		}
 	}
 
-	manualObservation.Resource = &pb.Resource{Name: "non existing"}
+	nonExisting := "non existing"
+	manualObservation.ResourceRef = &pb.ResourceRef{ExternalId: &nonExisting}
 	_, err = client.CreateObservation(ctx, &pb.CreateObservationRequest{Observation: manualObservation})
 	if err == nil {
 		t.Errorf("CreateObservation(ctx, %+v) wanted error, got nil", manualObservation)
@@ -232,21 +289,32 @@ func TestModronE2e(t *testing.T) {
 
 func TestModronE2eFake(t *testing.T) {
 	want := map[string][]*structpb.Value{
-		"account-1":                                          {structpb.NewStringValue(""), structpb.NewStringValue("")},
-		"bucket-public":                                      {structpb.NewStringValue("PRIVATE")},
+		"//cloudsql.googleapis.com/projects/project-id/instances/xyz": {nil},
+		"api-key-unrestricted-0": {structpb.NewStringValue("restricted")},
+		"api-key-unrestricted-1": {structpb.NewStringValue("restricted")},
+		"api-key-with-overbroad-scope-1": {
+			structpb.NewStringValue(""),
+			structpb.NewStringValue(""),
+		},
+		"backend-svc-external-no-modern": {structpb.NewStringValue("TLS 1.2")},
+		"backend-svc-no-iap":             {structpb.NewBoolValue(true)},
+		"bucket-accessible-from-other-project": {
+			structpb.NewStringValue("prod"),
+			structpb.NewStringValue("modron-test"),
+		},
 		"bucket-public-allusers":                             {structpb.NewStringValue("PRIVATE")},
-		"bucket-accessible-from-other-project":               {structpb.NewStringValue("")},
-		"api-key-unrestricted-0[]":                           {structpb.NewStringValue("restricted")},
-		"api-key-unrestricted-1[]":                           {structpb.NewStringValue("restricted")},
-		"api-key-with-overbroad-scope-1[]":                   {structpb.NewStringValue(""), structpb.NewStringValue("")},
-		"backend-svc-2[0]":                                   {structpb.NewNumberValue(float64(pb.Certificate_MANAGED))},
-		"backend-svc-3[0]":                                   {structpb.NewNumberValue(float64(pb.Certificate_MANAGED))},
-		"backend-svc-5[0]":                                   {structpb.NewStringValue("TLS 1.2")},
-		"subnetwork-no-private-access-should-be-reported[0]": {structpb.NewStringValue("enabled")},
+		"bucket-public":                                      {structpb.NewStringValue("PRIVATE")},
 		"cloudsql-report-not-enforcing-tls":                  {structpb.NewBoolValue(true)},
 		"cloudsql-test-db-public-and-no-authorized-networks": {structpb.NewStringValue("AUTHORIZED_NETWORKS_SET")},
-		"instance-1[0]":                                      {structpb.NewStringValue("empty")},
-		"projects/modron-test":                               {structpb.NewStringValue(""), structpb.NewStringValue("")},
+		"instance-1":                                         {structpb.NewStringValue("empty")},
+		"projects/modron-test": {
+			structpb.NewStringValue("prod"),
+			structpb.NewStringValue("modron-test"),
+			structpb.NewStringValue("modron-test"),
+			structpb.NewStringValue("No basic roles"),
+			structpb.NewStringValue("No basic roles"),
+		},
+		"subnetwork-no-private-access-should-be-reported": {structpb.NewStringValue("enabled")},
 	}
 	testModronE2e(t, fakeServerAddr, []string{"projects/modron-test"}, want)
 }

@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -17,8 +16,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/nianticlabs/modron/src/constants"
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
 )
 
 type TransportProvider func(ctx context.Context, cluster *container.Cluster) (http.RoundTripper, error)
@@ -28,8 +28,6 @@ type Storage struct {
 }
 
 var (
-	storage         *Storage
-	memoizationMap  sync.Map
 	cleanupInterval = 30 * time.Minute
 	cleanupTicker   = time.NewTicker(cleanupInterval)
 )
@@ -39,8 +37,15 @@ type cachedResource struct {
 	timestamp time.Time
 }
 
-func GetResource(ctx context.Context, resourceName string) (*pb.Resource, error) {
-	if cache, exists := memoizationMap.Load(resourceName); exists {
+func (e *RuleEngine) GetChildren(ctx context.Context, parent string) ([]*pb.Resource, error) {
+	filter := model.StorageFilter{
+		ParentNames: []string{parent},
+	}
+	return e.storage.ListResources(ctx, filter)
+}
+
+func (e *RuleEngine) GetResource(ctx context.Context, resourceName string) (*pb.Resource, error) {
+	if cache, exists := e.memoizationMap.Load(resourceName); exists {
 		res := cache.(*cachedResource)
 		return res.resource, nil
 	}
@@ -49,7 +54,13 @@ func GetResource(ctx context.Context, resourceName string) (*pb.Resource, error)
 		Limit:         1,
 		ResourceNames: []string{resourceName},
 	}
-	res, err := storage.Storage.ListResources(ctx, filter)
+	collectionID, ok := ctx.Value(constants.CollectIDKey).(string)
+	if ok {
+		filter.OperationID = collectionID
+	} else {
+		log.Warnf("collection ID not found in context")
+	}
+	res, err := e.storage.ListResources(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("resource %q could not be fetched: %w", resourceName, err)
 	}
@@ -61,26 +72,21 @@ func GetResource(ctx context.Context, resourceName string) (*pb.Resource, error)
 		resource:  res[0],
 		timestamp: time.Now(),
 	}
-	memoizationMap.Store(resourceName, cachedRes)
-
+	e.memoizationMap.Store(resourceName, cachedRes)
 	return res[0], nil
 }
 
-func init() {
-	go startCacheCleanup()
-}
-
-func startCacheCleanup() {
+func (e *RuleEngine) startCacheCleanup() {
 	for range cleanupTicker.C {
-		clearExpiredResources()
+		e.clearExpiredResources()
 	}
 }
 
-func clearExpiredResources() {
-	memoizationMap.Range(func(key, value interface{}) bool {
+func (e *RuleEngine) clearExpiredResources() {
+	e.memoizationMap.Range(func(key, value interface{}) bool {
 		cachedRes := value.(*cachedResource)
 		if time.Since(cachedRes.timestamp) >= cleanupInterval {
-			memoizationMap.Delete(key)
+			e.memoizationMap.Delete(key)
 		}
 		return true
 	})
@@ -89,7 +95,7 @@ func clearExpiredResources() {
 func GetKubernetesClient(ctx context.Context, clusterName string, httpClient *http.Client, getTransport TransportProvider) (*kubernetes.Clientset, error) {
 	tokenSource, err := google.DefaultTokenSource(ctx, compute.CloudPlatformScope)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get a token source: %v", err)
+		return nil, fmt.Errorf("failed to get a token source: %w", err)
 	}
 	if httpClient == http.DefaultClient {
 		httpClient = oauth2.NewClient(ctx, tokenSource)
@@ -97,14 +103,14 @@ func GetKubernetesClient(ctx context.Context, clusterName string, httpClient *ht
 	}
 	containerService, err := container.NewService(ctx, option.WithHTTPClient(httpClient))
 	if err != nil {
-		return nil, fmt.Errorf("could not create client for Google Container Engine: %v", err)
+		return nil, fmt.Errorf("could not create client for Google Container Engine: %w", err)
 	}
 
 	cluster, err := containerService.Projects.Locations.Clusters.Get(clusterName).Context(ctx).Do()
 	if err != nil {
-		return nil, fmt.Errorf("cluster %q: %v", clusterName, err)
+		return nil, fmt.Errorf("cluster %q: %w", clusterName, err)
 	}
-	// This is a very ugly dependency injection but we have to do it otherwise unittesting would require a complete oauth2 backend.
+	// This is a very ugly dependency injection, but we have to do it otherwise the unit test would require a complete oauth2 backend.
 	tr, err := getTransport(ctx, cluster)
 	if err != nil {
 		return nil, err
@@ -118,7 +124,7 @@ func GetKubernetesClient(ctx context.Context, clusterName string, httpClient *ht
 		kubeHTTPClient,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("kubernetes HTTP client could not be created: %v", err)
+		return nil, fmt.Errorf("kubernetes HTTP client could not be created: %w", err)
 	}
 	return kubeClient, nil
 }
@@ -126,13 +132,13 @@ func GetKubernetesClient(ctx context.Context, clusterName string, httpClient *ht
 func GetOauthTransport(ctx context.Context, cluster *container.Cluster) (http.RoundTripper, error) {
 	tokenSource, err := google.DefaultTokenSource(ctx, compute.CloudPlatformScope)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get a token source: %v", err)
+		return nil, fmt.Errorf("failed to get a token source: %w", err)
 	}
 	// Connect to Kubernetes using OAuth authentication, trusting its CA.
 	caPool := x509.NewCertPool()
 	caCertPEM, err := base64.StdEncoding.DecodeString(cluster.MasterAuth.ClusterCaCertificate)
 	if err != nil {
-		return nil, fmt.Errorf("invalid base64 in ClusterCaCertificate: %v", err)
+		return nil, fmt.Errorf("invalid base64 in ClusterCaCertificate: %w", err)
 	}
 	caPool.AppendCertsFromPEM(caCertPEM)
 	return &oauth2.Transport{

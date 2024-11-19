@@ -3,14 +3,12 @@ package rules
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-
-	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
-
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/nianticlabs/modron/src/model"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
 )
 
 func TestCheckDetectsPublicBucket(t *testing.T) {
@@ -74,26 +72,37 @@ func TestCheckDetectsPublicBucket(t *testing.T) {
 	want := []*pb.Observation{
 		{
 			Name: BucketIsPublicRuleName,
-			Resource: &pb.Resource{
-				Name: "public-bucket-2-is-detected",
+			ResourceRef: &pb.ResourceRef{
+				Uid:           proto.String("uuid-1"),
+				GroupName:     "projects/project-0",
+				ExternalId:    proto.String("public-bucket-2-is-detected"),
+				CloudPlatform: pb.CloudPlatform_GCP,
 			},
 			ObservedValue: structpb.NewStringValue("PUBLIC"),
 			ExpectedValue: structpb.NewStringValue("PRIVATE"),
+			Remediation: &pb.Remediation{
+				Description:    "Bucket [\"public-bucket-2-is-detected\"](https://console.cloud.google.com/storage/browser/public-bucket-2-is-detected) is publicly accessible",
+				Recommendation: "Unless strictly needed, restrict the IAM policy of bucket [\"public-bucket-2-is-detected\"](https://console.cloud.google.com/storage/browser/public-bucket-2-is-detected) to prevent unconditional access by anyone. For more details, see [here](https://cloud.google.com/storage/docs/using-public-access-prevention)",
+			},
+			Severity: pb.Severity_SEVERITY_MEDIUM,
 		},
 		{
 			Name: BucketIsPublicRuleName,
-			Resource: &pb.Resource{
-				Name: "public-bucket-1-is-detected",
+			ResourceRef: &pb.ResourceRef{
+				Uid:           proto.String("uuid-2"),
+				GroupName:     "projects/project-0",
+				ExternalId:    proto.String("public-bucket-1-is-detected"),
+				CloudPlatform: pb.CloudPlatform_GCP,
 			},
 			ObservedValue: structpb.NewStringValue("PUBLIC"),
 			ExpectedValue: structpb.NewStringValue("PRIVATE"),
+			Remediation: &pb.Remediation{
+				Description:    "Bucket [\"public-bucket-1-is-detected\"](https://console.cloud.google.com/storage/browser/public-bucket-1-is-detected) is publicly accessible",
+				Recommendation: "Unless strictly needed, restrict the IAM policy of bucket [\"public-bucket-1-is-detected\"](https://console.cloud.google.com/storage/browser/public-bucket-1-is-detected) to prevent unconditional access by anyone. For more details, see [here](https://cloud.google.com/storage/docs/using-public-access-prevention)",
+			},
+			Severity: pb.Severity_SEVERITY_MEDIUM,
 		},
 	}
 
-	got := TestRuleRun(t, resources, []model.Rule{NewBucketIsPublicRule()})
-
-	// Check that the observations are correct.
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
-		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
-	}
+	TestRuleRun(t, resources, []model.Rule{NewBucketIsPublicRule()}, want)
 }

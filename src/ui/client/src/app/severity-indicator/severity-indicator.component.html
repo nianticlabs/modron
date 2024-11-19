@@ -1,0 +1,22 @@
+<div
+  class="severity-circle"
+  [ngClass]="{
+            'severity-circle-info': severity === Severity.SEVERITY_INFO,
+            'severity-circle-low': severity === Severity.SEVERITY_LOW,
+            'severity-circle-medium':
+              severity === Severity.SEVERITY_MEDIUM,
+            'severity-circle-high': severity === Severity.SEVERITY_HIGH,
+            'severity-circle-critical':
+              severity === Severity.SEVERITY_CRITICAL,
+            'severity-circle-unknown':
+              severity === Severity.SEVERITY_UNKNOWN
+          }"
+  [matTooltip]="severity | severityName"
+>
+  <span *ngIf="count === undefined; else severity_count">
+    {{ getIcon() }}
+  </span>
+  <ng-template #severity_count>
+    {{ count! | severityAmount }}
+  </ng-template>
+</div>

@@ -5,11 +5,12 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"github.com/nianticlabs/modron/src/pb"
+
+	pb "github.com/nianticlabs/modron/src/proto/generated"
 )
 
 type Exception struct {
-	Uuid             string    `json:"uuid,omitempty"`
+	UUID             string    `json:"uuid,omitempty"`
 	SourceSystem     string    `json:"sourceSystem,omitempty"`
 	UserEmail        string    `json:"userEmail,omitempty"`
 	NotificationName string    `json:"notification_name,omitempty"`
@@ -19,7 +20,7 @@ type Exception struct {
 }
 
 type Notification struct {
-	Uuid         string        `json:"uuid,omitempty"`
+	UUID         string        `json:"uuid,omitempty"`
 	SourceSystem string        `json:"sourceSystem,omitempty"`
 	Name         string        `json:"name,omitempty"`
 	Recipient    string        `json:"recipient,omitempty"`
@@ -31,7 +32,7 @@ type Notification struct {
 
 func (e *Exception) ToProto() *pb.NotificationException {
 	return &pb.NotificationException{
-		Uuid:             e.Uuid,
+		Uuid:             e.UUID,
 		SourceSystem:     e.SourceSystem,
 		UserEmail:        e.UserEmail,
 		NotificationName: e.NotificationName,
@@ -43,7 +44,7 @@ func (e *Exception) ToProto() *pb.NotificationException {
 
 func ExceptionFromProto(p *pb.NotificationException) Exception {
 	return Exception{
-		Uuid:             p.Uuid,
+		UUID:             p.Uuid,
 		SourceSystem:     p.SourceSystem,
 		UserEmail:        p.UserEmail,
 		NotificationName: p.NotificationName,
@@ -54,6 +55,7 @@ func ExceptionFromProto(p *pb.NotificationException) Exception {
 }
 
 type NotificationService interface {
+	BatchCreateNotifications(ctx context.Context, notifications []Notification) ([]Notification, error)
 	CreateNotification(ctx context.Context, notification Notification) (Notification, error)
 
 	GetException(ctx context.Context, uuid string) (Exception, error)

@@ -2,87 +2,174 @@ package rules
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
+	"errors"
 	"testing"
+	"time"
 
-	"google.golang.org/protobuf/types/known/structpb"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/google/uuid"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/nianticlabs/modron/src/engine"
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/risk"
 	"github.com/nianticlabs/modron/src/storage/memstorage"
+	"github.com/nianticlabs/modron/src/utils"
 )
 
 const testProjectName = "projects/project-0"
 
 var observationsSorter = func(lhs, rhs *pb.Observation) bool {
-	return lhs.Resource.Name < rhs.Resource.Name
+	if lhs.ResourceRef == nil || rhs.ResourceRef == nil {
+		return lhs.Remediation.Description < rhs.Remediation.Description
+	}
+
+	if lhs.ResourceRef.ExternalId == nil || rhs.ResourceRef.ExternalId == nil {
+		return lhs.Remediation.Description < rhs.Remediation.Description
+	}
+
+	if *lhs.ResourceRef.ExternalId < *rhs.ResourceRef.ExternalId {
+		return true
+	} else if *lhs.ResourceRef.ExternalId > *rhs.ResourceRef.ExternalId {
+		return false
+	}
+	return lhs.Remediation.Description < rhs.Remediation.Description
 }
 
-func TestRuleRun(t *testing.T, resources []*pb.Resource, rules []model.Rule) []*pb.Observation {
+func mustMarshal[T any](v T) json.RawMessage {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+func testRuleRunHelper(t *testing.T, resources []*pb.Resource, rules []model.Rule) ([]*pb.Observation, []error) {
 	t.Helper()
 	ctx := context.Background()
-
 	storage := memstorage.New()
+
+	allGroups := utils.GroupsFromResources(resources)
+
+	// Fake a collection event
+	collectID := uuid.NewString()
+	for i := range resources {
+		resources[i].CollectionUid = collectID
+	}
+	// Fake a collection completed event, otherwise the resources cannot be found
+	now := time.Now()
+	for _, group := range allGroups {
+		err := storage.AddOperationLog(ctx, []*pb.Operation{{
+			Id:            collectID,
+			ResourceGroup: group,
+			Type:          "collection",
+			StatusTime:    timestamppb.New(now),
+			Status:        pb.Operation_STARTED,
+			Reason:        "",
+		}})
+		if err != nil {
+			t.Fatalf("AddOperationLog unexpected error: %v", err)
+		}
+	}
+	// Flush Ops Log
+	if err := storage.FlushOpsLog(ctx); err != nil {
+		t.Fatalf("FlushOpsLog unexpected error: %v", err)
+	}
 	if _, err := storage.BatchCreateResources(ctx, resources); err != nil {
 		t.Fatalf("AddResources unexpected error: %v", err)
 	}
+	end := time.Now()
+	for _, group := range allGroups {
+		err := storage.AddOperationLog(ctx, []*pb.Operation{{
+			Id:            collectID,
+			ResourceGroup: group,
+			Type:          "collection",
+			StatusTime:    timestamppb.New(end),
+			Status:        pb.Operation_COMPLETED,
+			Reason:        "",
+		}})
+		if err != nil {
+			t.Fatalf("AddOperationLog unexpected error: %v", err)
+		}
+	}
+	// Flush Ops Log
+	if err := storage.FlushOpsLog(ctx); err != nil {
+		t.Fatalf("FlushOpsLog unexpected error: %v", err)
+	}
 
-	allGroups := groupsFromResources(resources)
-
-	obs, err := engine.New(storage, rules, []string{}).CheckRules(ctx, "unit-test-scan", allGroups)
+	scanID := uuid.NewString()
+	e, err := engine.New(storage, rules, map[string]json.RawMessage{
+		"CONTAINER_NOT_RUNNING": mustMarshal(ContainerRunningConfig{
+			RequiredContainers: map[string][]string{
+				"namespace-1": {"pod-prefix-1-", "pod-prefix-2-"},
+			},
+		}),
+	}, []string{}, risk.TagConfig{
+		Environment:  "111111111111/environment",
+		EmployeeData: "111111111111/employee_data",
+		CustomerData: "111111111111/customer_data",
+	})
 	if err != nil {
-		t.Fatalf("CheckRules unexpected error: %v", err)
+		t.Fatalf("New unexpected error: %v", err)
 	}
-	return obs
+	return e.CheckRules(ctx, scanID, "", allGroups, nil)
 }
 
-func groupsFromResources(resources []*pb.Resource) (allGroups []string) {
-	resourceGroups := map[string]struct{}{}
-	for _, r := range resources {
-		switch r.Type.(type) {
-		case *pb.Resource_ResourceGroup:
-			resourceGroups[r.Name] = struct{}{}
-		}
+func errorStrings(errs []error) []string {
+	var errStrs []string
+	for _, err := range errs {
+		errStrs = append(errStrs, err.Error())
 	}
-	for k := range resourceGroups {
-		allGroups = append(allGroups, k)
-	}
-	return allGroups
+	return errStrs
 }
 
-func observationComparer(o1, o2 *pb.Observation) bool {
-	if o1 == nil || o2 == nil {
-		return false
+func TestRuleShouldFail(t *testing.T, resources []*pb.Resource, rules []model.Rule, expectedErr []error) {
+	_, err := testRuleRunHelper(t, resources, rules)
+	if diff := cmp.Diff(errorStrings(expectedErr), errorStrings(err)); diff != "" {
+		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
 	}
-	if fmt.Sprintf("%T", o1.ExpectedValue) != fmt.Sprintf("%T", o2.ExpectedValue) {
-		return false
+}
+
+func TestRuleRun(t *testing.T, resources []*pb.Resource, rules []model.Rule, want []*pb.Observation) {
+	got, errArr := testRuleRunHelper(t, resources, rules)
+	if len(errArr) > 0 {
+		t.Fatalf("CheckRules unexpected error: %v", errors.Join(errArr...))
 	}
-	if fmt.Sprintf("%T", o1.ObservedValue) != fmt.Sprintf("%T", o2.ObservedValue) {
-		return false
-	}
-	if o1.Name != o2.Name {
-		return false
-	}
-	if o1.Resource.Name != o2.Resource.Name {
-		return false
-	}
-	switch o1.ExpectedValue.Kind.(type) {
-	case *structpb.Value_StringValue:
-		if o1.ExpectedValue.GetStringValue() == o2.ExpectedValue.GetStringValue() && o1.ObservedValue.GetStringValue() == o2.ObservedValue.GetStringValue() {
-			return true
+	for _, obs := range got {
+		if obs.Uid == "" {
+			t.Errorf("CheckRules unexpected empty UID")
 		}
-		return false
-	case *structpb.Value_NumberValue:
-		if o1.ExpectedValue.GetNumberValue() == o2.ExpectedValue.GetNumberValue() && o1.ObservedValue.GetNumberValue() == o2.ObservedValue.GetNumberValue() {
-			return true
+		if obs.Timestamp == nil {
+			t.Errorf("CheckRules unexpected nil timestamp")
 		}
-		return false
-	case *structpb.Value_BoolValue:
-		if o1.ExpectedValue.GetBoolValue() == o2.ExpectedValue.GetBoolValue() && o1.ObservedValue.GetBoolValue() == o2.ObservedValue.GetBoolValue() {
-			return true
+		if obs.Severity == pb.Severity_SEVERITY_UNKNOWN {
+			t.Errorf("CheckRules unexpected unknown severity")
 		}
-		return false
-	default:
-		panic(fmt.Sprintf("comparison for type %T not implemented", o1.ExpectedValue.Kind))
+	}
+
+	// We add some fields to `want` so that we don't have to change the test data every time
+	// we modify one "meta" field:
+	for i, ob := range want {
+		ob.Source = pb.Observation_SOURCE_MODRON
+		ob.RiskScore = ob.Severity
+		ob.Impact = pb.Impact_IMPACT_MEDIUM
+		want[i] = ob
+	}
+
+	if diff := cmp.Diff(want, got, protocmp.Transform(), protocmp.IgnoreFields(
+		&pb.Observation{},
+		"timestamp",
+		"uid",
+		"scan_uid",
+	),
+		protocmp.IgnoreFields(&pb.ResourceRef{}, "uid"),
+		protocmp.IgnoreUnknown(),
+		cmpopts.SortSlices(observationsSorter),
+	); diff != "" {
+		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
 	}
 }

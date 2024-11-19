@@ -1,0 +1,55 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    # batch metrics before sending to reduce API usage
+    send_batch_max_size: 200
+    send_batch_size: 200
+    timeout: 5s
+
+  memory_limiter:
+    # drop metrics if memory usage gets too high
+    check_interval: 1s
+    limit_percentage: 65
+    spike_limit_percentage: 20
+
+  resourcedetection:
+    detectors: [env, gcp]
+    timeout: 2s
+    override: false
+
+exporters:
+  googlecloud:
+    log:
+      default_log_name: "otel-collector"
+  otlphttp:
+    endpoint: "http://10.43.0.2:80"
+    tls:
+      insecure: true
+  googlemanagedprometheus:
+
+extensions:
+  health_check:
+    endpoint: "0.0.0.0:13133"
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resourcedetection]
+      exporters: [googlecloud,otlphttp]
+    logs:
+      receivers: [otlp]
+      processors: [resourcedetection]
+      exporters: [googlecloud]
+    metrics:
+      receivers: [otlp]
+      processors: [resourcedetection]
+      exporters: [googlemanagedprometheus]

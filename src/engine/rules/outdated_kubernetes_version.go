@@ -7,11 +7,12 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 
-	"github.com/nianticlabs/modron/src/common"
 	"github.com/nianticlabs/modron/src/constants"
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -20,7 +21,7 @@ import (
 const (
 	OutDatedKubernetesVersion = "OUTDATED_KUBERNETES_VERSION"
 	// https://cloud.google.com/kubernetes-engine/docs/release-schedule
-	currentK8sVersion = 1.23
+	currentK8sVersion = 1.27
 )
 
 type OutDatedKubernetesVersionRule struct {
@@ -35,17 +36,17 @@ func NewOutDatedKubernetesVersionRule() model.Rule {
 	return &OutDatedKubernetesVersionRule{
 		info: model.RuleInfo{
 			Name: OutDatedKubernetesVersion,
-			AcceptedResourceTypes: []string{
-				common.ResourceKubernetesCluster,
+			AcceptedResourceTypes: []proto.Message{
+				&pb.KubernetesCluster{},
 			},
 		},
 	}
 }
 
-func (r *OutDatedKubernetesVersionRule) Check(ctx context.Context, rsrc *pb.Resource) ([]*pb.Observation, []error) {
+func (r *OutDatedKubernetesVersionRule) Check(_ context.Context, _ model.Engine, rsrc *pb.Resource) ([]*pb.Observation, []error) {
 	k8s := rsrc.GetKubernetesCluster()
-	obs := []*pb.Observation{}
-	errs := []error{}
+	var obs []*pb.Observation
+	var errs []error
 	if k8s == nil {
 		errs = append(errs, fmt.Errorf("no kubernetes cluster resource provided"))
 		return obs, errs
@@ -71,7 +72,7 @@ func (r *OutDatedKubernetesVersionRule) Check(ctx context.Context, rsrc *pb.Reso
 		ob := &pb.Observation{
 			Uid:           uuid.NewString(),
 			Timestamp:     timestamppb.Now(),
-			Resource:      rsrc,
+			ResourceRef:   utils.GetResourceRef(rsrc),
 			Name:          r.Info().Name,
 			ExpectedValue: structpb.NewStringValue(fmt.Sprintf("version > %.2f", currentK8sVersion)),
 			ObservedValue: structpb.NewStringValue(k8s.MasterVersion),
@@ -88,6 +89,7 @@ func (r *OutDatedKubernetesVersionRule) Check(ctx context.Context, rsrc *pb.Reso
 					currentK8sVersion,
 				),
 			},
+			Severity: pb.Severity_SEVERITY_HIGH,
 		}
 		obs = append(obs, ob)
 	}
@@ -96,7 +98,7 @@ func (r *OutDatedKubernetesVersionRule) Check(ctx context.Context, rsrc *pb.Reso
 		ob := &pb.Observation{
 			Uid:           uuid.NewString(),
 			Timestamp:     timestamppb.Now(),
-			Resource:      rsrc,
+			ResourceRef:   utils.GetResourceRef(rsrc),
 			Name:          r.Info().Name,
 			ExpectedValue: structpb.NewStringValue(fmt.Sprintf("version > %.2f", currentK8sVersion)),
 			ObservedValue: structpb.NewStringValue(k8s.NodesVersion),
@@ -113,6 +115,7 @@ func (r *OutDatedKubernetesVersionRule) Check(ctx context.Context, rsrc *pb.Reso
 					currentK8sVersion,
 				),
 			},
+			Severity: pb.Severity_SEVERITY_HIGH,
 		}
 		obs = append(obs, ob)
 	}

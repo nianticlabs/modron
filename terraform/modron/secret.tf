@@ -4,7 +4,7 @@ resource "google_secret_manager_secret" "sql_connect_string_config" {
   replication {
     user_managed {
       replicas {
-        location = substr(var.zone, 0, length(var.zone) - 2)
+        location = local.region
       }
     }
   }

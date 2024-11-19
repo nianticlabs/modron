@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 )
 
 func TestUnusedExportedKey(t *testing.T) {
@@ -19,6 +19,21 @@ func TestUnusedExportedKey(t *testing.T) {
 	oneYearAgo := now.Add(-time.Hour * 24 * 365)
 	threeMonthsAndOneDay := now.Add(-time.Hour * 24 * 91)
 	oneYearAhead := now.Add(time.Hour * 24 * 365)
+
+	resourceNotUsedInALongTime := &pb.Resource{
+		Name:              testProjectName + "/serviceAccounts/unused-svc-account@project-id.iam.gserviceaccount.com/keys/d88bb32b79ee4193a05ee178447e09a4",
+		Parent:            testProjectName,
+		ResourceGroupName: testProjectName,
+		IamPolicy:         &pb.IamPolicy{},
+		Type: &pb.Resource_ExportedCredentials{
+			ExportedCredentials: &pb.ExportedCredentials{
+				CreationDate:   timestamppb.New(oneYearAgo),
+				ExpirationDate: &timestamppb.Timestamp{Seconds: oneYearAhead.Unix(), Nanos: 0},
+				LastUsage:      timestamppb.New(threeMonthsAndOneDay),
+			},
+		},
+	}
+
 	resources := []*pb.Resource{
 		{
 			Name:              testProjectName,
@@ -29,19 +44,7 @@ func TestUnusedExportedKey(t *testing.T) {
 				ResourceGroup: &pb.ResourceGroup{},
 			},
 		},
-		{
-			Name:              "not-used-in-a-long-time",
-			Parent:            testProjectName,
-			ResourceGroupName: testProjectName,
-			IamPolicy:         &pb.IamPolicy{},
-			Type: &pb.Resource_ExportedCredentials{
-				ExportedCredentials: &pb.ExportedCredentials{
-					CreationDate:   timestamppb.New(oneYearAgo),
-					ExpirationDate: &timestamppb.Timestamp{Seconds: oneYearAhead.Unix(), Nanos: 0},
-					LastUsage:      timestamppb.New(threeMonthsAndOneDay),
-				},
-			},
-		},
+		resourceNotUsedInALongTime,
 		{
 			Name:              "used-yesterday",
 			Parent:            testProjectName,
@@ -55,23 +58,35 @@ func TestUnusedExportedKey(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name:              "created-yesterday-unused-do-not-report",
+			Parent:            testProjectName,
+			ResourceGroupName: testProjectName,
+			IamPolicy:         &pb.IamPolicy{},
+			Type: &pb.Resource_ExportedCredentials{
+				ExportedCredentials: &pb.ExportedCredentials{
+					CreationDate:   timestamppb.New(yesterday),
+					ExpirationDate: &timestamppb.Timestamp{Seconds: oneYearAhead.Unix(), Nanos: 0},
+					LastUsage:      nil,
+				},
+			},
+		},
 	}
-
-	got := TestRuleRun(t, resources, []model.Rule{NewUnusedExportedCredentialsRule()})
 
 	// Expected values are ordered lexicographically.
 	want := []*pb.Observation{
 		{
-			Name: UnusedExportedCredentials,
-			Resource: &pb.Resource{
-				Name: "not-used-in-a-long-time",
-			},
+			Name:          unusedExportedCredentials,
+			ResourceRef:   utils.GetResourceRef(resourceNotUsedInALongTime),
 			ExpectedValue: structpb.NewStringValue(fmt.Sprintf("%s <", oldestUsage.Format(time.RFC3339))),
 			ObservedValue: structpb.NewStringValue(threeMonthsAndOneDay.Format(time.RFC3339)),
+			Remediation: &pb.Remediation{
+				Description:    "Exported key `d88bb32b79ee4193a05ee178447e09a4` of [\"unused-svc-account@project-id.iam.gserviceaccount.com\"](https://console.cloud.google.com/iam-admin/serviceaccounts/details/unused-svc-account@project-id.iam.gserviceaccount.com/keys?project=project-0) has not been used in the last 3 months",
+				Recommendation: "Consider deleting the exported key `d88bb32b79ee4193a05ee178447e09a4` of [\"unused-svc-account@project-id.iam.gserviceaccount.com\"](https://console.cloud.google.com/iam-admin/serviceaccounts/details/unused-svc-account@project-id.iam.gserviceaccount.com/keys?project=project-0) which is no longer in use",
+			},
+			Severity: pb.Severity_SEVERITY_HIGH,
 		},
 	}
 
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
-		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
-	}
+	TestRuleRun(t, resources, []model.Rule{NewUnusedExportedCredentialsRule()}, want)
 }

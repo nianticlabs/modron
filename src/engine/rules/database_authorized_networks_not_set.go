@@ -5,11 +5,13 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"github.com/nianticlabs/modron/src/common"
+
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 )
 
 const DatabaseAuthorizedNetworksNotSet = "DATABASE_AUTHORIZED_NETWORKS_NOT_SET"
@@ -26,14 +28,14 @@ func NewDatabaseAuthorizedNetworksNotSetRule() model.Rule {
 	return &DatabaseAuthorizedNetworksNotSetRule{
 		info: model.RuleInfo{
 			Name: DatabaseAuthorizedNetworksNotSet,
-			AcceptedResourceTypes: []string{
-				common.ResourceDatabase,
+			AcceptedResourceTypes: []proto.Message{
+				&pb.Database{},
 			},
 		},
 	}
 }
 
-func (r *DatabaseAuthorizedNetworksNotSetRule) Check(ctx context.Context, rsrc *pb.Resource) ([]*pb.Observation, []error) {
+func (r *DatabaseAuthorizedNetworksNotSetRule) Check(_ context.Context, _ model.Engine, rsrc *pb.Resource) ([]*pb.Observation, []error) {
 	db := rsrc.GetDatabase()
 	obs := []*pb.Observation{}
 
@@ -45,7 +47,7 @@ func (r *DatabaseAuthorizedNetworksNotSetRule) Check(ctx context.Context, rsrc *
 		ob := &pb.Observation{
 			Uid:           uuid.NewString(),
 			Timestamp:     timestamppb.Now(),
-			Resource:      rsrc,
+			ResourceRef:   utils.GetResourceRef(rsrc),
 			Name:          r.Info().Name,
 			ExpectedValue: structpb.NewStringValue(pb.Database_AUTHORIZED_NETWORKS_SET.String()),
 			ObservedValue: structpb.NewStringValue(pb.Database_AUTHORIZED_NETWORKS_NOT_SET.String()),
@@ -59,6 +61,7 @@ func (r *DatabaseAuthorizedNetworksNotSetRule) Check(ctx context.Context, rsrc *
 					getGcpReadableResourceName(rsrc.Name),
 				),
 			},
+			Severity: pb.Severity_SEVERITY_HIGH,
 		}
 		obs = append(obs, ob)
 	}

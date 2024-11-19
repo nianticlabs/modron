@@ -9,21 +9,23 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
 )
 
 const (
-	ResourceApiKey              = "ApiKey"
+	ResourceAPIKey              = "ApiKey"
 	ResourceBucket              = "Bucket"
-	ResourceExportedCredentials = "ExportedCredentials"
+	ResourceDatabase            = "Database"
+	ResourceExportedCredentials = "ExportedCredentials" //nolint:gosec
+	ResourceGroup               = "Group"
 	ResourceKubernetesCluster   = "KubernetesCluster"
 	ResourceLoadBalancer        = "LoadBalancer"
+	ResourceNamespace           = "Namespace"
 	ResourceNetwork             = "Network"
+	ResourcePod                 = "Pod"
 	ResourceResourceGroup       = "ResourceGroup"
 	ResourceServiceAccount      = "ServiceAccount"
-	ResourceVmInstance          = "VmInstance"
-	ResourceDatabase            = "Database"
-	ResourceGroup               = "Group"
+	ResourceVMInstance          = "VmInstance"
 )
 
 // See `Ssl`
@@ -32,39 +34,6 @@ const (
 	CertificateSelfManaged = "SELF_MANAGED"
 	CertificateUnknown     = "TYPE_UNSPECIFIED"
 )
-
-func TypeFromResourceAsString(rsrc *pb.Resource) (ty string, err error) {
-	if rsrc == nil {
-		return "", fmt.Errorf("resource must not be nil")
-	}
-	switch rsrc.Type.(type) {
-	case *pb.Resource_ApiKey:
-		ty = ResourceApiKey
-	case *pb.Resource_Bucket:
-		ty = ResourceBucket
-	case *pb.Resource_ExportedCredentials:
-		ty = ResourceExportedCredentials
-	case *pb.Resource_KubernetesCluster:
-		ty = ResourceKubernetesCluster
-	case *pb.Resource_LoadBalancer:
-		ty = ResourceLoadBalancer
-	case *pb.Resource_Network:
-		ty = ResourceNetwork
-	case *pb.Resource_ResourceGroup:
-		ty = ResourceResourceGroup
-	case *pb.Resource_ServiceAccount:
-		ty = ResourceServiceAccount
-	case *pb.Resource_VmInstance:
-		ty = ResourceVmInstance
-	case *pb.Resource_Database:
-		ty = ResourceDatabase
-	case *pb.Resource_Group:
-		ty = ResourceGroup
-	default:
-		err = fmt.Errorf("unknown resource type %q", rsrc.Type)
-	}
-	return
-}
 
 func TypeFromSslCertificate(cert *compute.SslCertificate) (ty pb.Certificate_Type, err error) {
 	switch cert.Type {
@@ -82,13 +51,13 @@ func TypeFromSslCertificate(cert *compute.SslCertificate) (ty pb.Certificate_Typ
 
 // TODO: Cast without (un)marshaling if possible.
 func ResourceFromStructValue(value *structpb.Value) (*pb.Resource, error) {
-	valueJson, err := protojson.Marshal(value)
+	valueJSON, err := protojson.Marshal(value)
 	if err != nil {
 		return nil, err
 	}
 
 	rsrc := &pb.Resource{}
-	if err := protojson.Unmarshal(valueJson[:], rsrc); err != nil {
+	if err := protojson.Unmarshal(valueJSON, rsrc); err != nil {
 		return nil, err
 	}
 
@@ -97,13 +66,13 @@ func ResourceFromStructValue(value *structpb.Value) (*pb.Resource, error) {
 
 // TODO: Cast without (un)marshaling if possible.
 func StructValueFromResource(rsrc *pb.Resource) (*structpb.Value, error) {
-	rsrcJson, err := protojson.Marshal(rsrc)
+	rsrcJSON, err := protojson.Marshal(rsrc)
 	if err != nil {
 		return nil, err
 	}
 
 	value := &structpb.Value{}
-	if err := protojson.Unmarshal(rsrcJson[:], value); err != nil {
+	if err := protojson.Unmarshal(rsrcJSON, value); err != nil {
 		return nil, err
 	}
 

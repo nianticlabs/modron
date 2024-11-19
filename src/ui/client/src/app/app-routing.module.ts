@@ -6,6 +6,7 @@ import { NotificationExceptionsComponent } from "./notification-exceptions/notif
 import { ResourceGroupDetailsComponent } from "./resource-group-details/resource-group-details.component"
 import { ResourceGroupsComponent } from "./resource-groups/resource-groups.component"
 import { StatsComponent } from "./stats/stats.component"
+import {UIDemoComponent} from "./ui-demo/ui-demo.component";
 
 const routes: Routes = [
   {
@@ -24,6 +25,10 @@ const routes: Routes = [
         path: "exceptions/new/:notificationName",
         component: NotificationExceptionFormComponent,
       },
+      {
+        path: "ui-demo",
+        component: UIDemoComponent,
+      }
     ],
   },
 

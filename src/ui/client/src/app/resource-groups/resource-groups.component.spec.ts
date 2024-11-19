@@ -4,7 +4,7 @@ import { FilterKeyValuePipe, FilterNoObservationsPipe } from "../filter.pipe";
 import { mapFlatRulesPipe } from "../resource-group-details/resource-group-details.pipe";
 import { ModronStore } from "../state/modron.store";
 import { RouterTestingModule } from "@angular/router/testing";
-import { HttpClientTestingModule } from "@angular/common/http/testing";
+import { provideHttpClientTesting } from "@angular/common/http/testing";
 
 import { ResourceGroupsComponent } from "./resource-groups.component";
 import {
@@ -12,6 +12,7 @@ import {
   ObsNbPipe,
   ResourceGroupsPipe,
 } from "./resource-groups.pipe";
+import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 
 describe("ResourceGroupsComponent", () => {
   let component: ResourceGroupsComponent;
@@ -19,7 +20,7 @@ describe("ResourceGroupsComponent", () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [
+    declarations: [
         ResourceGroupsComponent,
         ResourceGroupsPipe,
         FilterKeyValuePipe,
@@ -27,14 +28,11 @@ describe("ResourceGroupsComponent", () => {
         InvalidProjectNb,
         ObsNbPipe,
         FilterNoObservationsPipe,
-      ],
-      imports: [
-        MatSnackBarModule,
-        RouterTestingModule,
-        HttpClientTestingModule,
-        ],
-      providers: [ModronStore],
-    }).compileComponents();
+    ],
+    imports: [MatSnackBarModule,
+        RouterTestingModule],
+    providers: [ModronStore, provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
+}).compileComponents();
 
     fixture = TestBed.createComponent(ResourceGroupsComponent);
     component = fixture.componentInstance;

@@ -3,14 +3,31 @@ package rules
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/types/known/structpb"
+
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 )
 
 func TestCheckDetectTooOldMinTlsVersion(t *testing.T) {
+	lbGcpDefault := &pb.Resource{
+		Name:              "lb-gcp-default",
+		Parent:            testProjectName,
+		ResourceGroupName: testProjectName,
+		IamPolicy:         &pb.IamPolicy{},
+		Type: &pb.Resource_LoadBalancer{
+			LoadBalancer: &pb.LoadBalancer{
+				Type: pb.LoadBalancer_EXTERNAL,
+				SslPolicy: &pb.SslPolicy{
+					MinTlsVersion: pb.SslPolicy_TLS_1_0,
+					Profile:       pb.SslPolicy_COMPATIBLE,
+					Name:          "GCP Default",
+				},
+			},
+		},
+	}
+
 	resources := []*pb.Resource{
 		{
 			Name:              testProjectName,
@@ -37,22 +54,7 @@ func TestCheckDetectTooOldMinTlsVersion(t *testing.T) {
 				},
 			},
 		},
-		{
-			Name:              "lb-gcp-default",
-			Parent:            testProjectName,
-			ResourceGroupName: testProjectName,
-			IamPolicy:         &pb.IamPolicy{},
-			Type: &pb.Resource_LoadBalancer{
-				LoadBalancer: &pb.LoadBalancer{
-					Type: pb.LoadBalancer_EXTERNAL,
-					SslPolicy: &pb.SslPolicy{
-						MinTlsVersion: pb.SslPolicy_TLS_1_0,
-						Profile:       pb.SslPolicy_COMPATIBLE,
-						Name:          "GCP Default",
-					},
-				},
-			},
-		},
+		lbGcpDefault,
 		{
 			Name:              "lb-gcp-default-internal",
 			Parent:            testProjectName,
@@ -73,18 +75,17 @@ func TestCheckDetectTooOldMinTlsVersion(t *testing.T) {
 
 	want := []*pb.Observation{
 		{
-			Name: LbMinTlsVersionTooOldRuleName,
-			Resource: &pb.Resource{
-				Name: "lb-gcp-default",
-			},
+			Name:          lbMinTLSVersionTooOldRule,
+			ResourceRef:   utils.GetResourceRef(lbGcpDefault),
 			ExpectedValue: structpb.NewStringValue(protoToVersionMap[pb.SslPolicy_TLS_1_2]),
 			ObservedValue: structpb.NewStringValue(protoToVersionMap[pb.SslPolicy_TLS_1_0]),
+			Remediation: &pb.Remediation{
+				Description:    "The load balancer [\"lb-gcp-default\"](https://console.cloud.google.com/net-services/loadbalancing/list/loadBalancers?project=project-0) allows connections over an outdated TLS protocol version. Outdated protocol versions use ciphers which can be attacked by dedicated threat actors",
+				Recommendation: "Configure an SSL policy for the load balancer [\"lb-gcp-default\"](https://console.cloud.google.com/net-services/loadbalancing/list/loadBalancers?project=project-0) that has a Minimum TLS version of TLS 1.2 and uses e.g. the \"MODERN\" or \"RESTRICTED\" configuration",
+			},
+			Severity: pb.Severity_SEVERITY_HIGH,
 		},
 	}
-	got := TestRuleRun(t, resources, []model.Rule{NewLbMinTlsVersionTooOldRule()})
 
-	// Check that the observations are correct.
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
-		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
-	}
+	TestRuleRun(t, resources, []model.Rule{NewLbMinTLSVersionTooOldRule()}, want)
 }

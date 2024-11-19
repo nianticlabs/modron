@@ -3,48 +3,104 @@ package rules
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 )
 
 const (
-	collectId = "collectId-1"
+	collectID = "collectID-1"
 )
 
 func TestCheckDetectsHighPrivilege(t *testing.T) {
 	// Because of the new memoization we need a specific project name for this test.
-	testProjectName := "projects/test-project" + uuid.NewString()
-	testProjectName1 := "projects/test-project1" + uuid.NewString()
+	testProjectName := "projects/check-detects-high-privilege-0"
+	testProjectName1 := "projects/check-detects-high-privilege-1"
+
+	account0 := &pb.Resource{
+		Uid:               uuid.NewString(),
+		Name:              "account-0",
+		Parent:            testProjectName,
+		ResourceGroupName: testProjectName,
+		CollectionUid:     collectID,
+		IamPolicy:         &pb.IamPolicy{},
+		Type: &pb.Resource_ServiceAccount{
+			ServiceAccount: &pb.ServiceAccount{
+				ExportedCredentials: []*pb.ExportedCredentials{},
+			},
+		},
+	}
+
+	account1 := &pb.Resource{
+		Uid:               uuid.NewString(),
+		Name:              "account-1",
+		Parent:            testProjectName,
+		ResourceGroupName: testProjectName,
+		CollectionUid:     collectID,
+		IamPolicy:         &pb.IamPolicy{},
+		Type: &pb.Resource_ServiceAccount{
+			ServiceAccount: &pb.ServiceAccount{
+				ExportedCredentials: []*pb.ExportedCredentials{},
+			},
+		},
+	}
+
+	account2 := &pb.Resource{
+		Uid:               uuid.NewString(),
+		Name:              "account-2",
+		Parent:            testProjectName1,
+		ResourceGroupName: testProjectName1,
+		CollectionUid:     collectID,
+		IamPolicy:         &pb.IamPolicy{},
+		Type: &pb.Resource_ServiceAccount{
+			ServiceAccount: &pb.ServiceAccount{
+				ExportedCredentials: []*pb.ExportedCredentials{},
+			},
+		},
+	}
+
+	account3 := &pb.Resource{
+		Uid:               uuid.NewString(),
+		Name:              "account-3",
+		Parent:            testProjectName1,
+		ResourceGroupName: testProjectName1,
+		CollectionUid:     collectID,
+		IamPolicy:         &pb.IamPolicy{},
+		Type: &pb.Resource_ServiceAccount{
+			ServiceAccount: &pb.ServiceAccount{
+				ExportedCredentials: []*pb.ExportedCredentials{},
+			},
+		},
+	}
+
 	resources := []*pb.Resource{
 		{
 			Name:              testProjectName,
 			Parent:            "folders/123",
 			ResourceGroupName: testProjectName,
-			CollectionUid:     collectId,
+			CollectionUid:     collectID,
 			IamPolicy: &pb.IamPolicy{
 				Resource: nil,
 				Permissions: []*pb.Permission{
 					{
 						Role: "iam.serviceAccountAdmin",
 						Principals: []string{
-							"account-0",
+							"serviceAccount:account-0",
 						},
 					},
 					{
 						Role: "dataflow.admin",
 						Principals: []string{
-							"account-1",
+							"serviceAccount:account-1",
 						},
 					},
 					{
 						Role: "viewer",
 						Principals: []string{
-							"account-1",
+							"serviceAccount:account-1",
 						},
 					},
 				},
@@ -57,15 +113,15 @@ func TestCheckDetectsHighPrivilege(t *testing.T) {
 			Name:              testProjectName1,
 			Parent:            "folders/234",
 			ResourceGroupName: testProjectName1,
-			CollectionUid:     collectId,
+			CollectionUid:     collectID,
 			IamPolicy: &pb.IamPolicy{
 				Resource: nil,
 				Permissions: []*pb.Permission{
 					{
 						Role: "iam.serviceAccountUser",
 						Principals: []string{
-							"account-2",
-							"account-3",
+							"serviceAccount:account-2",
+							"serviceAccount:account-3",
 						},
 					},
 				},
@@ -74,98 +130,58 @@ func TestCheckDetectsHighPrivilege(t *testing.T) {
 				ResourceGroup: &pb.ResourceGroup{},
 			},
 		},
-		{
-			Uid:               uuid.NewString(),
-			Name:              "account-0",
-			Parent:            testProjectName,
-			ResourceGroupName: testProjectName,
-			CollectionUid:     collectId,
-			IamPolicy:         &pb.IamPolicy{},
-			Type: &pb.Resource_ServiceAccount{
-				ServiceAccount: &pb.ServiceAccount{
-					ExportedCredentials: []*pb.ExportedCredentials{},
-				},
-			},
-		},
-		{
-			Uid:               uuid.NewString(),
-			Name:              "account-1",
-			Parent:            testProjectName,
-			ResourceGroupName: testProjectName,
-			CollectionUid:     collectId,
-			IamPolicy:         &pb.IamPolicy{},
-			Type: &pb.Resource_ServiceAccount{
-				ServiceAccount: &pb.ServiceAccount{
-					ExportedCredentials: []*pb.ExportedCredentials{},
-				},
-			},
-		},
-		{
-			Uid:               uuid.NewString(),
-			Name:              "account-2",
-			Parent:            testProjectName1,
-			ResourceGroupName: testProjectName1,
-			CollectionUid:     collectId,
-			IamPolicy:         &pb.IamPolicy{},
-			Type: &pb.Resource_ServiceAccount{
-				ServiceAccount: &pb.ServiceAccount{
-					ExportedCredentials: []*pb.ExportedCredentials{},
-				},
-			},
-		},
-		{
-			Uid:               uuid.NewString(),
-			Name:              "account-3",
-			Parent:            testProjectName1,
-			ResourceGroupName: testProjectName1,
-			CollectionUid:     collectId,
-			IamPolicy:         &pb.IamPolicy{},
-			Type: &pb.Resource_ServiceAccount{
-				ServiceAccount: &pb.ServiceAccount{
-					ExportedCredentials: []*pb.ExportedCredentials{},
-				},
-			},
-		},
+		account0,
+		account1,
+		account2,
+		account3,
 	}
 
 	want := []*pb.Observation{
 		{
-			Name: TooHighPrivilegesRuleName,
-			Resource: &pb.Resource{
-				Name: "account-0",
-			},
+			Name:          TooHighPrivilegesRuleName,
+			ResourceRef:   utils.GetResourceRef(account0),
 			ExpectedValue: structpb.NewStringValue(""),
 			ObservedValue: structpb.NewStringValue("iam.serviceAccountAdmin"),
+			Remediation: &pb.Remediation{
+				Description:    "Service account [\"account-0\"](https://console.cloud.google.com/iam-admin/serviceaccounts?project=check-detects-high-privilege-0) has over-broad role \"iam.serviceAccountAdmin\"",
+				Recommendation: "Replace the role \"iam.serviceAccountAdmin\" for service account [\"account-0\"](https://console.cloud.google.com/iam-admin/serviceaccounts?project=check-detects-high-privilege-0) with a predefined or custom role that grants it the **smallest set of permissions** needed to operate. This role **cannot** be any of the following: `[editor owner composer.admin dataproc.admin dataproc.editor dataflow.admin dataflow.developer iam.serviceAccountAdmin iam.serviceAccountUser iam.serviceAccountTokenCreator]` *Hint: The Security insights column can help you reduce the amount of permissions*",
+			},
+			Severity: pb.Severity_SEVERITY_MEDIUM,
 		},
 		{
-			Name: TooHighPrivilegesRuleName,
-			Resource: &pb.Resource{
-				Name: "account-1",
-			},
+			Name:          TooHighPrivilegesRuleName,
+			ResourceRef:   utils.GetResourceRef(account1),
 			ExpectedValue: structpb.NewStringValue(""),
 			ObservedValue: structpb.NewStringValue("dataflow.admin"),
+			Remediation: &pb.Remediation{
+				Description:    "Service account [\"account-1\"](https://console.cloud.google.com/iam-admin/serviceaccounts?project=check-detects-high-privilege-0) has over-broad role \"dataflow.admin\"",
+				Recommendation: "Replace the role \"dataflow.admin\" for service account [\"account-1\"](https://console.cloud.google.com/iam-admin/serviceaccounts?project=check-detects-high-privilege-0) with a predefined or custom role that grants it the **smallest set of permissions** needed to operate. This role **cannot** be any of the following: `[editor owner composer.admin dataproc.admin dataproc.editor dataflow.admin dataflow.developer iam.serviceAccountAdmin iam.serviceAccountUser iam.serviceAccountTokenCreator]` *Hint: The Security insights column can help you reduce the amount of permissions*",
+			},
+			Severity: pb.Severity_SEVERITY_MEDIUM,
 		},
 		{
-			Name: TooHighPrivilegesRuleName,
-			Resource: &pb.Resource{
-				Name: "account-2",
-			},
+			Name:          TooHighPrivilegesRuleName,
+			ResourceRef:   utils.GetResourceRef(account2),
 			ExpectedValue: structpb.NewStringValue(""),
 			ObservedValue: structpb.NewStringValue("iam.serviceAccountUser"),
+			Remediation: &pb.Remediation{
+				Description:    "Service account [\"account-2\"](https://console.cloud.google.com/iam-admin/serviceaccounts?project=check-detects-high-privilege-1) has over-broad role \"iam.serviceAccountUser\"",
+				Recommendation: "Replace the role \"iam.serviceAccountUser\" for service account [\"account-2\"](https://console.cloud.google.com/iam-admin/serviceaccounts?project=check-detects-high-privilege-1) with a predefined or custom role that grants it the **smallest set of permissions** needed to operate. This role **cannot** be any of the following: `[editor owner composer.admin dataproc.admin dataproc.editor dataflow.admin dataflow.developer iam.serviceAccountAdmin iam.serviceAccountUser iam.serviceAccountTokenCreator]` *Hint: The Security insights column can help you reduce the amount of permissions*",
+			},
+			Severity: pb.Severity_SEVERITY_MEDIUM,
 		},
 		{
-			Name: TooHighPrivilegesRuleName,
-			Resource: &pb.Resource{
-				Name: "account-3",
-			},
+			Name:          TooHighPrivilegesRuleName,
+			ResourceRef:   utils.GetResourceRef(account3),
 			ExpectedValue: structpb.NewStringValue(""),
 			ObservedValue: structpb.NewStringValue("iam.serviceAccountUser"),
+			Remediation: &pb.Remediation{
+				Description:    "Service account [\"account-3\"](https://console.cloud.google.com/iam-admin/serviceaccounts?project=check-detects-high-privilege-1) has over-broad role \"iam.serviceAccountUser\"",
+				Recommendation: "Replace the role \"iam.serviceAccountUser\" for service account [\"account-3\"](https://console.cloud.google.com/iam-admin/serviceaccounts?project=check-detects-high-privilege-1) with a predefined or custom role that grants it the **smallest set of permissions** needed to operate. This role **cannot** be any of the following: `[editor owner composer.admin dataproc.admin dataproc.editor dataflow.admin dataflow.developer iam.serviceAccountAdmin iam.serviceAccountUser iam.serviceAccountTokenCreator]` *Hint: The Security insights column can help you reduce the amount of permissions*",
+			},
+			Severity: pb.Severity_SEVERITY_MEDIUM,
 		},
 	}
 
-	got := TestRuleRun(t, resources, []model.Rule{NewTooHighPrivilegesRule()})
-
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
-		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
-	}
+	TestRuleRun(t, resources, []model.Rule{NewTooHighPrivilegesRule()}, want)
 }

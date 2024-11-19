@@ -5,11 +5,12 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 
-	"github.com/nianticlabs/modron/src/common"
 	"github.com/nianticlabs/modron/src/constants"
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -29,14 +30,14 @@ func NewLbUserManagedCertRule() model.Rule {
 	return &LbUserManagedCertRule{
 		info: model.RuleInfo{
 			Name: LbUserManagedCertRuleName,
-			AcceptedResourceTypes: []string{
-				common.ResourceLoadBalancer,
+			AcceptedResourceTypes: []proto.Message{
+				&pb.LoadBalancer{},
 			},
 		},
 	}
 }
 
-func (r *LbUserManagedCertRule) Check(ctx context.Context, rsrc *pb.Resource) (obs []*pb.Observation, errs []error) {
+func (r *LbUserManagedCertRule) Check(_ context.Context, _ model.Engine, rsrc *pb.Resource) (obs []*pb.Observation, errs []error) {
 	lb := rsrc.GetLoadBalancer()
 
 	for _, cert := range lb.Certificates {
@@ -51,10 +52,10 @@ func (r *LbUserManagedCertRule) Check(ctx context.Context, rsrc *pb.Resource) (o
 			ob := &pb.Observation{
 				Uid:           uuid.NewString(),
 				Timestamp:     timestamppb.Now(),
-				Resource:      rsrc,
+				ResourceRef:   utils.GetResourceRef(rsrc),
 				Name:          r.Info().Name,
-				ExpectedValue: structpb.NewNumberValue(float64(pb.Certificate_MANAGED)),
-				ObservedValue: structpb.NewNumberValue(float64(cert.Type)),
+				ExpectedValue: structpb.NewStringValue(pb.Certificate_MANAGED.String()),
+				ObservedValue: structpb.NewStringValue(cert.Type.String()),
 				Remediation: &pb.Remediation{
 					Description: fmt.Sprintf(
 						"Load balancer [%q](https://console.cloud.google.com/net-services/loadbalancing/list/loadBalancers?project=%s) has user-managed certificate issued by %q for the domain %q",
@@ -69,6 +70,7 @@ func (r *LbUserManagedCertRule) Check(ctx context.Context, rsrc *pb.Resource) (o
 						constants.ResourceWithoutProjectsPrefix(rsrc.ResourceGroupName),
 					),
 				},
+				Severity: pb.Severity_SEVERITY_INFO,
 			}
 			obs = append(obs, ob)
 		}

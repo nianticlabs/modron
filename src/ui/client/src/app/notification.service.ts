@@ -1,4 +1,4 @@
-import { NotificationServiceClient } from "src/proto/notification_pb_service"
+import { NotificationServiceClient } from "../proto/NotificationServiceClientPb"
 import { Injectable } from "@angular/core"
 import { Observable, mergeMap, from, EMPTY, concat } from "rxjs"
 import { environment } from "src/environments/environment"
@@ -25,7 +25,7 @@ export class NotificationService {
     req.setException(exp)
 
     return new Observable((sub) => {
-      this._client.createNotificationException(req, (err, res) => {
+      this._client.createNotificationException(req, {}, (err, res) => {
         if (err !== null) {
           return sub.error(`createNotificationException: ${err}`)
         }
@@ -49,7 +49,7 @@ export class NotificationService {
       req.setPageToken(pageToken ?? "")
 
       return new Observable((sub) => {
-        this._client.listNotificationExceptions(req, (err, res) => {
+        this._client.listNotificationExceptions(req, {}, (err, res) => {
           if (err !== null) {
             return sub.error(`listNotificationExceptions: ${err}`)
           }

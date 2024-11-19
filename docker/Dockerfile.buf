@@ -1,0 +1,51 @@
+FROM ubuntu:24.04
+ARG BUF_VERSION="1.46.0"
+ARG BUF_MINISIG_PUBKEY="RWQ/i9xseZwBVE7pEniCNjlNOeeyp4BQgdZDLQcAohxEAH5Uj5DEKjv6"
+ARG PROTOBUF_JS_VERSION="3.21.4"
+ARG GRPC_WEB_VERSION="1.5.0"
+ARG GRPC_GATEWAY_VERSION="2.23.0"
+
+RUN apt-get update && \
+    apt-get install -y \
+        protoc-gen-go \
+        protoc-gen-go-grpc \
+        curl \
+        wget \
+        minisign \
+        perl
+WORKDIR /build
+
+# buf
+RUN wget -q "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-$(uname -s)-$(uname -m)" && \
+    wget -q "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/sha256.txt" && \
+    wget -q "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/sha256.txt.minisig" && \
+    minisign -Vm sha256.txt -P "$BUF_MINISIG_PUBKEY" && \
+    shasum -a 256 -c sha256.txt --ignore-missing && \
+    mv "buf-$(uname -s)-$(uname -m)" /usr/local/bin/buf && \
+    chmod +x /usr/local/bin/buf && \
+    rm *
+
+RUN bash -c "ARCH=$(dpkg --print-architecture); if [ \"\$ARCH\" = \"arm64\" ]; then ARCH=\"aarch_64\"; fi; echo -n \$ARCH > /tmp/arch"
+
+# protobuf-javascript
+RUN wget -q -O /tmp/protobuf-javascript.tar.gz "https://github.com/protocolbuffers/protobuf-javascript/releases/download/v${PROTOBUF_JS_VERSION}/protobuf-javascript-${PROTOBUF_JS_VERSION}-$(uname -s | tr "[:upper:]" "[:lower:]")-$(cat /tmp/arch).tar.gz" && \
+    mkdir /tmp/protobuf-javascript && \
+    tar -xzvf /tmp/protobuf-javascript.tar.gz -C /tmp/protobuf-javascript && \
+    mv /tmp/protobuf-javascript/bin/protoc-gen-js /usr/local/bin/protoc-gen-js && \
+    rm -rf /tmp/protobuf-javascript
+
+# protoc-gen-grpc-web
+RUN wget -q -O /usr/local/bin/protoc-gen-grpc-web "https://github.com/grpc/grpc-web/releases/download/${GRPC_WEB_VERSION}/protoc-gen-grpc-web-${GRPC_WEB_VERSION}-$(uname -s | tr "[:upper:]" "[:lower:]")-$(uname -m)" && \
+    chmod +x /usr/local/bin/protoc-gen-grpc-web
+
+# protoc-gen-grpc-gateway
+RUN wget -q -O /usr/local/bin/protoc-gen-grpc-gateway \
+    "https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v${GRPC_GATEWAY_VERSION}/protoc-gen-grpc-gateway-v${GRPC_GATEWAY_VERSION}-$(uname -s | tr "[:upper:]" "[:lower:]")-$(dpkg --print-architecture)" && \
+    chmod a+x /usr/local/bin/protoc-gen-grpc-gateway
+
+# protoc-gen-openapiv2
+RUN wget -q -O /usr/local/bin/protoc-gen-openapiv2 \
+    "https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v${GRPC_GATEWAY_VERSION}/protoc-gen-openapiv2-v${GRPC_GATEWAY_VERSION}-$(uname -s | tr "[:upper:]" "[:lower:]")-$(dpkg --print-architecture)" && \
+    chmod a+x /usr/local/bin/protoc-gen-openapiv2
+
+ENTRYPOINT [ "buf" ]

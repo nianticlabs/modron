@@ -1,10 +1,17 @@
-import { environment } from "src/environments/environment"
-import { ModronServiceClient } from "src/proto/modron_pb_service"
+import {environment} from "src/environments/environment"
+import {ModronServiceClient} from "../proto/ModronServiceClientPb"
 
-import { Injectable } from "@angular/core"
-import { concat, EMPTY, from, mergeMap, Observable } from "rxjs"
-
-import * as pb from "src/proto/modron_pb"
+import {Injectable} from "@angular/core"
+import {concat, EMPTY, from, mergeMap, Observable} from "rxjs"
+import {
+  CollectAndScanRequest,
+  CollectAndScanResponse,
+  GetStatusCollectAndScanRequest,
+  GetStatusCollectAndScanResponse,
+  ListObservationsRequest,
+  ListObservationsResponse,
+  Observation
+} from "../proto/modron_pb";
 
 @Injectable({
   providedIn: "root",
@@ -22,17 +29,17 @@ export class ModronService {
 
   listObservations(
     resourceGroups: string[]
-  ): Observable<Map<string, Map<string, pb.Observation[]>>> {
+  ): Observable<Map<string, Map<string, Observation[]>>> {
     const fetchPage = (
       pageToken: string | null
-    ): Observable<pb.ListObservationsResponse> => {
-      const req = new pb.ListObservationsRequest()
+    ): Observable<ListObservationsResponse> => {
+      const req = new ListObservationsRequest()
       req.setResourceGroupNamesList(resourceGroups)
       req.setPageSize(ModronService.PAGE_SIZE)
       req.setPageToken(pageToken ?? "")
 
       return new Observable((sub) => {
-        this._client.listObservations(req, (err, res) => {
+        this._client.listObservations(req, {}, (err, res) => {
           if (err !== null) {
             return sub.error(`listObservations: ${err}`)
           }
@@ -47,13 +54,13 @@ export class ModronService {
     }
     const fetchObs = (
       pageToken: string | null = null
-    ): Observable<Map<string, Map<string, pb.Observation[]>>> => {
+    ): Observable<Map<string, Map<string, Observation[]>>> => {
       return fetchPage(pageToken).pipe(
         mergeMap((res) => {
           // deepcode ignore CollectionUpdatedButNeverQueried: Used, false positive.
-          const obs = new Map<string, Map<string, pb.Observation[]>>()
+          const obs = new Map<string, Map<string, Observation[]>>()
           res.getResourceGroupsObservationsList().forEach((v) => {
-            const map = new Map<string, pb.Observation[]>()
+            const map = new Map<string, Observation[]>()
             v.getRulesObservationsList().forEach((r) =>
               map.set(r.getRule(), r.getObservationsList())
             )
@@ -71,12 +78,12 @@ export class ModronService {
     return fetchObs()
   }
 
-  collectAndScan(resourceGroups: string[]): Observable<pb.CollectAndScanResponse> {
-    const fetchPage = (): Observable<pb.CollectAndScanResponse> => {
-      const req = new pb.CollectAndScanRequest()
+  collectAndScan(resourceGroups: string[]): Observable<CollectAndScanResponse> {
+    const fetchPage = (): Observable<CollectAndScanResponse> => {
+      const req = new CollectAndScanRequest()
       req.setResourceGroupNamesList(resourceGroups.map(
         (rg) => {
-          if (!rg.startsWith("projects/")) {
+          if (rg.indexOf("/") === -1) {
             return `projects/${rg}`
           }
           return rg
@@ -84,7 +91,7 @@ export class ModronService {
       ))
 
       return new Observable((sub) => {
-        this._client.collectAndScan(req, (err, res) => {
+        this._client.collectAndScan(req, {}, (err, res) => {
           if (err !== null) {
             return sub.error(`collectAndScan: ${err}`)
           }
@@ -98,13 +105,31 @@ export class ModronService {
     return fetchPage()
   }
 
-  getCollectAndScanStatus(IDs: string): Observable<pb.GetStatusCollectAndScanResponse> {
-    const req = new pb.GetStatusCollectAndScanRequest()
+  collectAndScanAll(): Observable<CollectAndScanResponse> {
+    const fetchPage = (): Observable<CollectAndScanResponse> => {
+      const req = new CollectAndScanRequest()
+      return new Observable((sub) => {
+        this._client.collectAndScanAll(req, {}, (err, res) => {
+          if (err !== null) {
+            return sub.error(`collectAndScanAll: ${err}`)
+          }
+          if (res === null) {
+            return sub.error("collectAndScanAll: unexpected null response")
+          }
+          return sub.next(res)
+        })
+      })
+    }
+    return fetchPage()
+  }
+
+  getCollectAndScanStatus(IDs: string): Observable<GetStatusCollectAndScanResponse> {
+    const req = new GetStatusCollectAndScanRequest()
     req.setCollectId(IDs.split(ModronService.SEPARATOR)[0])
     req.setScanId(IDs.split(ModronService.SEPARATOR)[1])
 
     return new Observable((sub) => {
-      this._client.getStatusCollectAndScan(req, (err, res) => {
+      this._client.getStatusCollectAndScan(req, {}, (err, res) => {
         if (err !== null) {
           return sub.error(`getScanStatus: ${err}`)
         }

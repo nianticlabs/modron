@@ -1,3 +1,0 @@
-FROM postgres:14-bullseye
-COPY storage/sqlstorage/schema.sql /docker-entrypoint-initdb.d
-COPY storage/sqlstorage/grant.sql /docker-entrypoint-initdb.d/wwwgrant.sql

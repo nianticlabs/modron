@@ -1,0 +1,6 @@
+/cypress
+!/cypress/e2e
+!/cypress/components
+!/cypress/tsconfig.json
+/dist
+/results

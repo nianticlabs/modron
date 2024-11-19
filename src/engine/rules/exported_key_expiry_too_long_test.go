@@ -4,12 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/nianticlabs/modron/src/model"
-	"github.com/nianticlabs/modron/src/pb"
+	pb "github.com/nianticlabs/modron/src/proto/generated"
+	"github.com/nianticlabs/modron/src/utils"
 )
 
 func TestExportedKeyTooOld(t *testing.T) {
@@ -17,6 +17,19 @@ func TestExportedKeyTooOld(t *testing.T) {
 	yesterday := now.Add(time.Hour * -24)
 	tomorrow := now.Add(time.Hour * 24)
 	oneYearAgo := now.Add(-time.Hour * 24 * 365)
+
+	outdatedExportedKey := &pb.Resource{
+		Name:              "outdated-exported-key",
+		Parent:            testProjectName,
+		ResourceGroupName: testProjectName,
+		IamPolicy:         &pb.IamPolicy{},
+		Type: &pb.Resource_ExportedCredentials{
+			ExportedCredentials: &pb.ExportedCredentials{
+				CreationDate:   timestamppb.New(oneYearAgo),
+				ExpirationDate: timestamppb.New(tomorrow),
+			},
+		},
+	}
 	resources := []*pb.Resource{
 		{
 			Name:              testProjectName,
@@ -39,35 +52,23 @@ func TestExportedKeyTooOld(t *testing.T) {
 				},
 			},
 		},
-		{
-			Name:              "outdated-exported-key",
-			Parent:            testProjectName,
-			ResourceGroupName: testProjectName,
-			IamPolicy:         &pb.IamPolicy{},
-			Type: &pb.Resource_ExportedCredentials{
-				ExportedCredentials: &pb.ExportedCredentials{
-					CreationDate:   timestamppb.New(oneYearAgo),
-					ExpirationDate: timestamppb.New(tomorrow),
-				},
-			},
-		},
+		outdatedExportedKey,
 	}
-
-	got := TestRuleRun(t, resources, []model.Rule{NewExportedKeyIsTooOldRule()})
 
 	// Expected values are ordered lexicographically.
 	want := []*pb.Observation{
 		{
-			Name: ExportedKeyIsTooOld,
-			Resource: &pb.Resource{
-				Name: "outdated-exported-key",
-			},
+			Name:          ExportedKeyIsTooOld,
+			ResourceRef:   utils.GetResourceRef(outdatedExportedKey),
 			ExpectedValue: structpb.NewStringValue("later creation date"),
 			ObservedValue: structpb.NewStringValue(oneYearAgo.Format("2006-01-02 15:04:05 +0000 UTC")),
+			Remediation: &pb.Remediation{
+				Description:    "Exported key [\"outdated-exported-key\"](https://console.cloud.google.com/apis/credentials?project=project-0) is too long lived",
+				Recommendation: "Rotate the exported key [\"outdated-exported-key\"](https://console.cloud.google.com/apis/credentials?project=project-0) every 6 months",
+			},
+			Severity: pb.Severity_SEVERITY_MEDIUM,
 		},
 	}
 
-	if diff := cmp.Diff(want, got, cmp.Comparer(observationComparer), cmpopts.SortSlices(observationsSorter)); diff != "" {
-		t.Errorf("CheckRules unexpected diff (-want, +got): %v", diff)
-	}
+	TestRuleRun(t, resources, []model.Rule{NewExportedKeyIsTooOldRule()}, want)
 }

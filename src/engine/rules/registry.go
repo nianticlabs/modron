@@ -10,6 +10,11 @@ import (
 var rules sync.Map
 
 func AddRule(r model.Rule) {
+	ruleName := r.Info().Name
+	_, ok := rules.Load(ruleName)
+	if ok {
+		panic(fmt.Sprintf("rule %q already exists", ruleName))
+	}
 	rules.Store(r.Info().Name, r)
 }
 
@@ -21,9 +26,8 @@ func GetRule(name string) (model.Rule, error) {
 }
 
 func GetRules() []model.Rule {
-	rulesSnapshot := []model.Rule{}
-
-	rules.Range(func(name, rule any) bool {
+	var rulesSnapshot []model.Rule
+	rules.Range(func(_, rule any) bool {
 		rulesSnapshot = append(rulesSnapshot, rule.(model.Rule))
 		return true
 	})
