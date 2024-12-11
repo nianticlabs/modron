@@ -7,4 +7,8 @@ deps:
   - buf.build/k8s/api
 lint:
   use:
-    - DEFAULT
+    - STANDARD
+breaking:
+  ignore:
+    - src/proto
+    - src/nagatha/proto
