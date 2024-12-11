@@ -12,9 +12,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: bufbuild/buf-action@v1
-      with:
-        # Ignore breaking changes.
-        breaking-against: ""
 
     - name: Generate protos
       run: buf lint || true && buf generate
