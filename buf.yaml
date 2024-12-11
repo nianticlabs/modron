@@ -10,4 +10,5 @@ lint:
     - STANDARD
 breaking:
   ignore:
-    - src
+    - src/proto
+    - src/nagatha/proto
